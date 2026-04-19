@@ -1,0 +1,2598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvo Model · Solar Load Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #080b0f;
+  --surface:  #0e1318;
+  --surface2: #141c24;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.2);
+  --text:     #e8edf2;
+  --muted:    #c8dce8;
+  --dim:      #8ab0c8;
+  --gold:     #f0a020;
+  --green:    #00d4aa;
+  --red:      #ff4d6d;
+  --blue:     #60a5fa;
+  --mono:     'DM Mono', monospace;
+  --display:  'Syne', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); overflow-x: hidden; }
+
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,11,15,0.95); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border2);
+  padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 50px;
+}
+.logo { font-family: var(--display); font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+.logo span { color: var(--gold); }
+.logo-sub { font-family: var(--mono); font-size: 9px; color: #c8dce8; letter-spacing: 3px; text-transform: uppercase; margin-left: 14px; }
+
+.header-badge {
+  font-family: var(--mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 2px;
+  background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.3); color: var(--green);
+}
+
+.page { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 10px 24px; }
+
+.section-title {
+  font-family: var(--display); font-size: 10px; font-weight: 700;
+  letter-spacing: 4px; text-transform: uppercase; color: #e8edf2;
+  margin-bottom: 10px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: ''; display: block; width: 3px; height: 14px; background: var(--gold); border-radius: 2px; }
+
+/* ── KPI ROW ── */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+  margin-bottom: 20px;
+}
+.kpi {
+  background: var(--surface); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  position: relative; overflow: hidden;
+}
+
+.kpi-label { font-size: 8px; letter-spacing: 2px; color: #c8dce8; text-transform: uppercase; }
+.kpi-val { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+.kpi-val.gold { color: var(--gold); }
+.kpi-val.green { color: var(--green); }
+.kpi-val.blue  { color: var(--blue); }
+.kpi-sub { font-size: 9px; color: #c8dce8; }
+
+/* ── INPUT GRID ── */
+.input-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); align-items: start;
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  margin-bottom: 0;
+}
+.input-cell {
+  background: var(--surface); padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  justify-content: flex-start;
+}
+.input-cell:hover { background: var(--surface2); }
+.input-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: #c8dce8; font-weight: 500; }
+.input-row { display: flex; align-items: baseline; gap: 8px; }
+input[type=range] {
+  width: 100%; height: 2px; cursor: pointer; accent-color: var(--gold);
+  -webkit-appearance: none; background: linear-gradient(to right, var(--gold) var(--pct, 50%), #4a6a80 var(--pct, 50%));
+  border-radius: 2px; border: none; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 8px rgba(240,160,32,0.6); cursor: pointer;
+}
+.range-labels { display: flex; justify-content: space-between; font-size: 8px; color: var(--muted); margin-top: 2px; }
+
+/* ── CHART CARDS ── */
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 14px 16px; position: relative; min-height: 320px;
+}
+.chart-title {
+  font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  color: #c8dce8; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── LOAD PROFILE TABLE ── */
+.load-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.load-table th {
+  text-align: right; padding: 6px 10px;
+  color: #c8dce8; font-weight: 500; letter-spacing: 1px;
+  font-size: 9px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.load-table th:first-child { text-align: left; }
+.load-table td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+.load-table td:first-child { text-align: left; color: var(--text); }
+.load-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── MINER SELECT ── */
+select {
+  font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 4px;
+  border: 1px solid var(--gold); background: rgba(240,160,32,0.08);
+  color: var(--gold); cursor: pointer; font-family: var(--mono); letter-spacing: 0.5px;
+}
+
+/* ── COOLING PILL ── */
+.cool-pill {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px;
+}
+.cool-btn {
+  font-size: 8px; padding: 2px 8px; border-radius: 3px; cursor: pointer; border: none;
+  font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s;
+}
+
+/* ── SOLAR MODEL TOGGLE ── */
+.model-pill {
+  display: flex; align-items: center; gap: 3px;
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 3px;
+}
+.model-btn {
+  font-family: var(--mono); font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 3px; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+}
+
+/* ── ASSUMPTIONS ── */
+.assumptions {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 4px;
+  overflow: hidden; margin-top: 24px;
+}
+.assumption { background: var(--surface); padding: 8px 10px; }
+.assumption-label { font-size: 8px; letter-spacing: 1.5px; color: #c8dce8; text-transform: uppercase; margin-bottom: 4px; }
+.assumption-val { font-size: 12px; color: #aac4d8; }
+
+@media (max-width: 1100px) {
+  .input-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── TABS ── */
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  margin-bottom: 0; position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+}
+.tab-btn {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; padding: 10px 20px;
+  background: transparent; color: var(--muted);
+  border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s;
+}
+.tab-btn.active { color: var(--text); border-bottom-color: var(--gold); }
+.tab-btn:hover { color: var(--text); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── SOLAR OUTPUT TABLE ── */
+.solar-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.solar-table th {
+  font-family: var(--mono); font-size: 7px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #c8dce8;
+  padding: 6px 8px; text-align: right; background: var(--surface);
+  border-bottom: 1px solid var(--border); position: sticky; top: var(--solar-table-top, 0);
+}
+.solar-table th:first-child { text-align: left; }
+.solar-table td {
+  padding: 4px 8px; text-align: right;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-family: var(--mono); color: var(--muted);
+}
+.solar-table td:first-child { text-align: left; color: var(--text); }
+.solar-table tr:hover td { background: rgba(255,255,255,0.02); }
+.solar-table td.active-hour { color: var(--green); }
+.solar-table td.peak-hour { color: var(--gold); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center">
+    <div class="logo">Nuvo <span>Model</span></div>
+    <div class="logo-sub">Solar Load Analysis</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <!-- Solar model toggle -->
+    <div class="model-pill">
+      <button id="btnOurModel" class="model-btn" onclick="setSolarModel('ours')"
+        style="background:var(--gold);color:#080b0f">⚡ Our Model</button>
+      <button id="btnHeliscope" class="model-btn" onclick="setSolarModel('heliscope')"
+        style="background:transparent;color:var(--muted)">☀ Heliscope</button>
+    </div>
+    <div class="header-badge">Sandton · 1,700 × Aiko 650W · 1,105 kWp</div>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('solar')">Solar Output Analysis</button>
+</div>
+<div class="page">
+<div id="tab-dashboard" class="tab-panel active">
+
+  <!-- ── PARAMETERS (STICKY) ── -->
+  <div style="position:sticky;top:50px;z-index:90;background:var(--bg);padding-top:10px;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid var(--border)">
+  <div class="section-title">Parameters</div>
+  <div style="display:grid;grid-template-columns:3fr 2fr;gap:0;margin-bottom:0">
+
+    <div class="input-grid" style="margin-bottom:0;grid-template-columns:1fr 1fr 1fr;align-items:stretch">
+    <!-- Row 1: Miners · Miner Model · Battery · Inverters -->
+    <!-- Miners -->
+    <div class="input-cell">
+      <div class="input-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:6px">H</span>Miners</span>
+        <button onclick="autoSetMiners()" style="
+          font-family:var(--mono);font-size:7px;letter-spacing:1.5px;text-transform:uppercase;
+          padding:3px 8px;border-radius:2px;cursor:pointer;white-space:nowrap;
+          background:transparent;color:var(--gold);border:1px solid var(--gold);transition:background 0.15s"
+          onmouseover="this.style.background='rgba(240,160,32,0.15)'" onmouseout="this.style.background='transparent'">
+          ⌖ Zero Spill
+        </button>
+      </div>
+      <div id="nMinersDisplay" style="font-size:18px;font-family:var(--mono);font-weight:400;color:var(--text);line-height:1;margin:2px 0 1px">
+        61<span style="font-size:11px;color:var(--muted);margin-left:4px">units</span>
+      </div>
+      <input type="range" id="nMiners" min="1" max="200" value="61" step="1"
+        oninput="document.getElementById('nMinersDisplay').firstChild.textContent=this.value+' ';updateRange(this);recalc()"
+        style="width:100%;margin-top:2px">
+      <div class="range-labels"><span>1</span><span>100</span><span>200</span></div>
+      <div id="autoMinerNote" style="font-size:8px;color:var(--muted);margin-top:4px"></div>
+      <div id="fullUtilNote" style="font-size:8px;color:var(--green);margin-top:3px"></div>
+    </div>
+
+    <!-- Miner Model -->
+    <div class="input-cell">
+      <div class="input-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:6px">I</span>Miner Model</span>
+        <div class="cool-pill">
+          <button id="coolHydro" class="cool-btn" onclick="setCoolingMode('hydro')"
+            style="background:var(--gold);color:#080b0f">Hydro</button>
+          <button id="cool3U" class="cool-btn" onclick="setCoolingMode('3u')"
+            style="background:transparent;color:var(--muted)">3U</button>
+          <button id="coolAir" class="cool-btn" onclick="setCoolingMode('air')"
+            style="background:transparent;color:var(--muted)">Air</button>
+        </div>
+      </div>
+      <select id="minerSelect" onchange="applyMinerChoice(this.value)" style="margin-top:4px;width:100%;max-width:100%">
+        <option value="s23">S23 Hyd · 580 TH/s · 9.5 J/TH</option>
+        <option value="s21">S21 Hyd · 480 TH/s · 11.0 J/TH</option>
+        <option value="s21p">S21+ Hyd 358 · 15.0 J/TH</option>
+        <option value="s21e" selected>S21e Hyd 332 · 17.0 J/TH</option>
+        <option value="s19">S19 XP+ Hyd · 293 TH/s · 19.0 J/TH</option>
+      </select>
+      <div id="minerSpecNote" style="font-size:9px;color:var(--muted);margin-top:4px">5.644 kW · 332 TH/s · 17.0 J/TH</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">Fleet: <span id="fleetKWNote" style="color:var(--text)">—</span> kW total</div>
+    </div>
+
+
+    <!-- Panel Count + DC:AC Ratio -->
+    <div class="input-cell" style="align-self:stretch;display:flex;flex-direction:column">
+      <div class="input-label" style="margin-bottom:6px"><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:6px">L</span> Solar Plant</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;align-content:start">
+        <div>
+          <div class="input-label" style="margin-bottom:4px">Number of Panels</div>
+          <div id="panelCountDisplay" style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1">1,700<span style="font-size:9px;color:var(--muted);margin-left:4px">panels</span></div>
+          <input type="range" id="panelCount" min="500" max="3000" value="1700" step="50"
+            oninput="PANEL_COUNT=+this.value;SOLAR_KWP_DC=PANEL_COUNT*PANEL_W/1000;document.getElementById('panelCountDisplay').firstChild.textContent=(+this.value).toLocaleString()+' ';updateRange(this);updateSolarDisplay();recalc()"
+            style="width:100%;margin-top:4px">
+          <div class="range-labels"><span>500</span><span>3,000</span></div>
+          <div id="panelKWpNote" style="font-size:9px;color:var(--gold);margin-top:3px">1,105 kWp DC · 650W Aiko</div>
+        </div>
+        <div>
+          <div class="input-label" style="margin-bottom:4px">DC : AC Ratio</div>
+          <div id="dcacDisplay" style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1">1.05<span style="font-size:9px;color:var(--muted);margin-left:4px">× oversize</span></div>
+          <input type="range" id="dcacRatio" min="1.00" max="1.50" value="1.052" step="0.01"
+            oninput="DC_AC_RATIO=+this.value;document.getElementById('dcacDisplay').firstChild.textContent=(+this.value).toFixed(2)+' ';updateRange(this);updateSolarDisplay();recalc()"
+            style="width:100%;margin-top:4px">
+          <div class="range-labels"><span>1.00×</span><span>1.50×</span></div>
+          <div id="dcacNote" style="font-size:9px;color:var(--muted);margin-top:3px">1,050 kW AC · 7 × 150kW</div>
+          <div id="dcacClipNote" style="font-size:9px;color:var(--gold);margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- System Efficiency + Inverters (M+N) -->
+    <div class="input-cell" style="grid-column:span 2">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div class="input-label" style="margin-bottom:4px"><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:4px">M</span>System Efficiency</div>
+          <div id="sysEffDisplay" style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1">88%</div>
+          <input type="range" id="sysEff" min="70" max="99" value="88" step="1"
+            oninput="document.getElementById('sysEffDisplay').textContent=this.value+'%';updateRange(this);recalc()"
+            style="width:100%;margin-top:4px">
+          <div class="range-labels"><span>70%</span><span>99%</span></div>
+          <div style="font-size:9px;color:var(--muted);margin-top:3px">Inverter · cable · soiling</div>
+        </div>
+        <div>
+          <div class="input-label" style="margin-bottom:4px"><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:4px">N</span>Inverters</div>
+          <div style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1;margin:4px 0 2px">
+            <span id="invCountDisplay">7</span><span style="font-size:9px;color:var(--muted);margin-left:6px">units</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:3px">panels ÷ (DC:AC × 150 kW)</div>
+          <div id="invSpecNote" style="font-size:9px;color:var(--gold);margin-top:3px">7 × 150 kW = 1,050 kW AC total</div>
+          <div id="invDcAcNote" style="font-size:9px;color:var(--green);margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- end miners sub-grid -->
+
+
+
+    <div class="input-grid" style="margin-bottom:0;grid-template-columns:1fr 1fr">
+    <!-- Luna 2000 Battery + RT Losses + DoD -->
+    <div class="input-cell">
+      <div class="input-label"><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:6px">J</span> Huawei Luna 2000 Battery</div>
+      <div style="display:flex;gap:3px;margin:4px 0 3px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px;width:fit-content">
+        <button id="luna0" onclick="setLunaUnits(0)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">None</button>
+        <button id="luna1" onclick="setLunaUnits(1)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:var(--gold);color:#080b0f;transition:all 0.15s">1</button>
+        <button id="luna2" onclick="setLunaUnits(2)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">2</button>
+        <button id="luna3" onclick="setLunaUnits(3)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">3</button>
+        <button id="luna4" onclick="setLunaUnits(4)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">4</button>
+        <button id="luna5" onclick="setLunaUnits(5)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">5</button>
+        <button id="luna6" onclick="setLunaUnits(6)" style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s">6</button>
+      </div>
+      <div id="lunaSpecNote" style="font-size:9px;color:var(--muted);margin-top:1px">1 × Luna 2000-200KWH · LFP · 0.5C max</div>
+      <div id="lunaKwhNote" style="font-size:9px;color:var(--green);margin-top:1px">200 kWh installed · 182 kWh usable (91% RT eff)</div>
+      <div id="lunaKwNote" style="font-size:9px;color:var(--blue);margin-top:1px">100 kW max discharge · 15.2 kW over 12h night</div>
+      <div id="lunaHeadroomNote" style="font-size:9px;color:var(--gold);margin-top:3px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <div>
+          <div class="input-label" style="margin-bottom:4px">RT Losses</div>
+          <div id="battLossDisplay" style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1">9%<span style="font-size:9px;color:var(--muted);margin-left:4px">loss</span></div>
+          <input type="range" id="battLoss" min="0" max="20" value="9" step="1"
+            oninput="BATT_RT_LOSS=+this.value/100;LUNA_RT_EFF=1-BATT_RT_LOSS;document.getElementById('battLossDisplay').firstChild.textContent=this.value+'%';updateRange(this);recalc()"
+            style="width:100%;margin-top:4px">
+          <div class="range-labels"><span>0%</span><span>20%</span></div>
+          <div id="battRTEffNote" style="font-size:9px;color:var(--green);margin-top:3px">91% RT eff</div>
+        </div>
+        <div>
+          <div class="input-label" style="margin-bottom:4px">Depth of Discharge</div>
+          <div id="battDoDDisplay" style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1">80%<span style="font-size:9px;color:var(--muted);margin-left:4px">DoD</span></div>
+          <input type="range" id="battDoD" min="50" max="100" value="80" step="1"
+            oninput="BATT_DOD=+this.value/100;BATT_MIN_SOC_DYN=1-BATT_DOD;document.getElementById('battDoDDisplay').firstChild.textContent=this.value+'%';updateRange(this);updateDoDNote();recalc()"
+            style="width:100%;margin-top:4px">
+          <div class="range-labels"><span>50%</span><span>100%</span></div>
+          <div id="battDoDNote" style="font-size:9px;color:var(--green);margin-top:3px">20% min SOC</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load Profile KPIs -->
+    <div class="input-cell" style="display:flex;flex-direction:column;gap:0">
+      <div class="input-label" style="margin-bottom:3px"><span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:700;margin-right:6px">K</span> Load Profile</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;flex:1">
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Miners at Wall</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--gold);line-height:1.2;margin-top:1px" id="kpiPeakKW">—</div>
+          <div style="font-size:7px;color:var(--muted)">kW miners</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Total Draw</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--gold);line-height:1.2;margin-top:1px" id="kpiTotalKW">—</div>
+          <div style="font-size:8px;color:var(--muted)" id="kpiCoolingSub">kW incl cooling</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Daily kWh</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--green);line-height:1.2;margin-top:1px" id="kpiDailyKWh">—</div>
+          <div style="font-size:7px;color:var(--muted)">kWh mined</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Mining Hours</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--text);line-height:1.2;margin-top:1px" id="kpiSolarHrs">—</div>
+          <div style="font-size:8px;color:var(--muted)" id="kpiSolarSub">hrs / day</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Utilisation</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--blue);line-height:1.2;margin-top:1px" id="kpiUtil">—</div>
+          <div style="font-size:7px;color:var(--muted)">% solar used</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Daily Spill</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--text);line-height:1.2;margin-top:1px" id="kpiSpill">—</div>
+          <div style="font-size:8px;color:var(--muted)" id="kpiSpillSub">kWh wasted</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Battery</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--blue);line-height:1.2;margin-top:1px" id="kpiBattKWh">—</div>
+          <div style="font-size:8px;color:var(--muted)" id="kpiBattSub">kWh stored</div>
+        </div>
+        <div style="background:var(--surface2);padding:3px 6px">
+          <div style="font-size:6px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Night Discharge</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--text);line-height:1.2;margin-top:1px" id="kpiBattKW">—</div>
+          <div style="font-size:7px;color:var(--muted)">kW overnight</div>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- end battery sub-grid -->
+
+  </div><!-- end row 1 wrapper -->
+
+  </div><!-- end sticky wrapper -->
+  <!-- ── SOLAR MODEL BANNER ── -->
+  <div id="solarModelBanner" style="display:none;font-family:var(--mono);font-size:8px;letter-spacing:1px;
+    text-align:center;padding:4px 12px;margin-bottom:12px;border-radius:3px"></div>
+
+  <!-- ── CHARTS ── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+    <!-- Daily load profile chart -->
+    <div class="chart-card">
+      <div class="chart-title">
+        <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">A</span>
+        Daily Load Profile · Solar vs Fleet Draw
+      </div>
+      <div style="position:relative;height:240px"><canvas id="loadProfileCanvas"></canvas></div>
+    </div>
+
+    <!-- Energy balance bar chart -->
+    <div class="chart-card">
+      <div class="chart-title">
+        <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">B</span>
+        Daily Energy Balance · kWh
+        <span id="chartBNote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+      </div>
+      <div style="position:relative;height:240px"><canvas id="energyBalanceCanvas"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- ── SOLAR OUTPUT PROFILE WITH CLIPPING ── -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">
+      <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">E</span>
+      Solar Output Profile · DC vs AC · Clipping
+      <span id="chartENote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+    </div>
+    <div style="position:relative;height:220px"><canvas id="solarProfileCanvas"></canvas></div>
+  </div>
+
+  <!-- ── HOURLY CONSUMPTION STACKED BAR ── -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">
+      <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">F</span>
+      Solar AC Consumption · Hourly · Mining · Cooling · Battery Charging
+      <span id="chartFNote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+    </div>
+    <div style="position:relative;height:240px"><canvas id="consumptionCanvas"></canvas></div>
+  </div>
+
+  <!-- ── SOC + ENERGY FLOW CHART ── -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="chart-card">
+      <div class="chart-title">
+        <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">C</span>
+        Energy Flow · Solar to Load vs Battery · 24h
+        <span id="chartCNote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="energyFlowCanvas"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">D</span>
+        Battery SOC · State of Charge
+        <span id="chartDNote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="socCanvas"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── WATERFALL: DC → AC ENERGY FLOW ── -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">
+      <span style="color:#ff3b3b;font-size:8px;letter-spacing:1.5px;font-weight:500">G</span>
+      Energy Waterfall · DC to AC · Where the energy goes
+      <span id="chartGNote" style="margin-left:auto;font-size:8px;color:var(--muted)"></span>
+    </div>
+    <div style="position:relative;height:300px"><canvas id="waterfallCanvas"></canvas></div>
+  </div>
+
+  <!-- ── MINER COMPARISON TABLE ── -->
+  <div class="section-title">Load Profile · All Miner Models</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow-x:auto;margin-bottom:24px">
+    <table class="load-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">Model</th>
+          <th>Form</th>
+          <th>kW / unit</th>
+          <th>J/TH</th>
+          <th>Zero-Spill Fleet</th>
+          <th>Fleet kW</th>
+          <th>+ Cooling</th>
+          <th>Total kW</th>
+          <th>kWh / day</th>
+          <th>Solar hrs</th>
+          <th>Utilisation</th>
+          <th>Daily Spill</th>
+        </tr>
+      </thead>
+      <tbody id="loadTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── FIXED ASSUMPTIONS ── -->
+  <div class="section-title">Fixed Assumptions</div>
+  <div class="assumptions">
+    <div class="assumption">
+      <div class="assumption-label">Solar Plant</div>
+      <div class="assumption-val" id="assumSolar">1,700 × Aiko 650W · 1,105 kWp · 1,050 kW AC · PSH 5.4h · Sandton</div>
+    </div>
+    <div class="assumption">
+      <div class="assumption-label">Solar Profile</div>
+      <div class="assumption-val" id="assumProfile">Sinusoidal · 6am–7pm · 13h window · peak at 12:30pm</div>
+    </div>
+    <div class="assumption">
+      <div class="assumption-label">Battery Spec (per unit)</div>
+      <div class="assumption-val">Huawei Luna 2000-200KWH · 200 kWh · 100 kW max · 0.5C · LFP · 91% RT eff</div>
+    </div>
+    <div class="assumption">
+      <div class="assumption-label">Location</div>
+      <div class="assumption-val">Sandton · 26°S · Highveld · summer storm risk afternoon</div>
+    </div>
+  </div>
+
+</div><!-- end tab-dashboard -->
+
+<div id="tab-solar" class="tab-panel">
+  <div style="padding:16px 24px">
+    <!-- Solar Output Analysis tab content injected by JS -->
+    <div id="solar-controls-bar" style="position:sticky;top:39px;z-index:90;background:var(--bg);padding-top:8px;padding-bottom:4px;margin-bottom:12px;border-bottom:1px solid var(--border)"></div>
+    <div id="solar-analysis-root"></div>
+    <div id="solar-seasonal-root" style="margin-top:24px"></div>
+  </div>
+</div>
+
+</div><!-- .page -->
+
+<script>
+// ── MINERS ───────────────────────────────────────────────────────
+const MINERS = {
+  s23:    { label:'S23 Hyd · 580 TH/s · 9.5 J/TH',       hash:580,  kw:5.510, form:'1U' },
+  s21:    { label:'S21 Hyd · 480 TH/s · 11.0 J/TH',       hash:480,  kw:5.300, form:'1U' },
+  s21p:   { label:'S21+ Hyd 358 · 15.0 J/TH',             hash:358,  kw:5.370, form:'1U' },
+  s21e:   { label:'S21e Hyd 332 · 17.0 J/TH',             hash:332,  kw:5.644, form:'1U' },
+  s19:    { label:'S19 XP+ Hyd · 293 TH/s · 19.0 J/TH',  hash:293,  kw:5.567, form:'1U' },
+  s19k:   { label:'S19K Pro Air · 120 TH/s · 23.0 J/TH',  hash:120,  kw:2.760, form:'AIR' },
+  s23_3u: { label:'S23 Hyd 3U · 1160 TH/s · 9.5 J/TH',   hash:1160, kw:11.020,form:'3U' },
+  s21e_3u:{ label:'S21e XP Hyd 3U · 860 TH/s · 13.0 J/TH',hash:860, kw:11.180,form:'3U' },
+  s19_3u: { label:'S19 XP Hyd 3U · 512 TH/s · 20.7 J/TH', hash:512, kw:10.600,form:'3U' },
+};
+
+let MINER_KW   = MINERS.s21e.kw;
+let MINER_HASH = MINERS.s21e.hash;
+const WH_KW    = 0;
+let COOLING_KW = 35.9; // kW for pumps + fans (from Apex spec)
+
+// ── LUNA 2000 BATTERY ────────────────────────────────────────────
+// Huawei LUNA2000-200KWH-2H1 commercial unit
+const LUNA_KWH     = 200;   // kWh per unit (usable)
+const LUNA_MAX_KW  = 100;   // kW max discharge per unit (0.5C)
+let   BATT_RT_LOSS  = 0.09;  // round-trip loss fraction (9% = 91% RT eff)
+let   BATT_DOD     = 0.80;  // depth of discharge (80% default)
+let   BATT_MIN_SOC = 0.20;  // minimum SOC = 1 - DoD, updated by DoD slider
+let   BATT_MIN_SOC_DYN = 0.20; // alias kept in sync
+const LUNA_DOD     = 1.00;  // 100% DoD (commercial spec)
+const LUNA_RT_EFF_BASE = 0.91; // kept for reference
+let   LUNA_RT_EFF       = 1 - BATT_RT_LOSS; // dynamic, updated by slider
+let   LUNA_UNITS   = 1;     // number of units selected
+let PANEL_COUNT  = 1700;     // number of panels
+let PANEL_W      = 650;      // Watts per panel (Aiko 650W)
+let DC_AC_RATIO  = 1.052;    // DC kWp / AC kW (1105 / 1050)
+let PSH          = 5.4;      // Peak Sun Hours (Sandton)
+// Derived — recalculated whenever sliders change
+let SOLAR_KWP_DC = PANEL_COUNT * PANEL_W / 1000; // kWp DC
+let   INV_COUNT    = 7;       // number of Huawei SUN2000-150KTL inverters
+const INV_KW      = 150;     // kW per inverter
+let   SOLAR_AC_INV = INV_COUNT * INV_KW; // total AC capacity kW
+
+// ── SOLAR MODELS ─────────────────────────────────────────────────
+const SOLAR_MODELS = {
+  ours: {
+    label: 'Our Model',
+    SOLAR_KWH_DAY: 5251,
+    PROFILE: [0.02,0.08,0.25,0.55,0.78,0.90,0.97,1.00,0.95,0.82,0.62,0.38,0.15],
+    useSin: true,
+  },
+  heliscope: {
+    label: 'Heliscope (Forrest)',
+    SOLAR_KWH_DAY: 4000,
+    PROFILE: [0.02,0.08,0.25,0.55,0.78,0.90,0.97,1.00,0.95,0.82,0.62,0.38,0.15],
+    useSin: false,
+  },
+};
+let activeSolarModel = 'ours';
+
+function setSolarModel(key) {
+  activeSolarModel = key;
+  const b1 = document.getElementById('btnOurModel');
+  const b2 = document.getElementById('btnHeliscope');
+  b1.style.background = key === 'ours' ? 'var(--gold)' : 'transparent';
+  b1.style.color       = key === 'ours' ? '#080b0f'    : 'var(--muted)';
+  b2.style.background  = key === 'heliscope' ? 'var(--gold)' : 'transparent';
+  b2.style.color       = key === 'heliscope' ? '#080b0f'     : 'var(--muted)';
+  const banner = document.getElementById('solarModelBanner');
+  if (key === 'heliscope') {
+    banner.style.display = 'block';
+    banner.style.cssText += ';background:rgba(240,160,32,0.08);border:1px solid rgba(240,160,32,0.3);color:var(--gold)';
+    banner.textContent = '☀ Heliscope scenario active — 4,000 kWh/day · Forrest\'s irradiance data';
+  } else {
+    banner.style.display = 'block';
+    banner.style.cssText += ';background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);color:var(--green)';
+    banner.textContent = '⚡ Our Model active — 5,251 kWh/day · sinusoidal profile · PSH 5.4h · Sandton';
+  }
+  const el = document.getElementById('assumProfile');
+  if (el) el.textContent = key === 'heliscope'
+    ? 'Heliscope hourly profile · 4,000 kWh/day · Forrest irradiance model'
+    : 'Sinusoidal · 6am–7pm · 13h window · peak at 12:30pm · 5,251 kWh/day';
+  recalc();
+}
+
+// ── SOLAR ENERGY FUNCTIONS ───────────────────────────────────────
+const STEPS = 260, DT = 13 / STEPS; // 13 solar hours in fine steps
+
+function getSolarKWh() {
+  if (activeSolarModel === 'heliscope') return 4000; // Heliscope is fixed measured data
+  // Integrate the clipped sin profile, then scale to PSH
+  // This correctly reduces output as DC:AC ratio increases (more clipping)
+  const sysEff  = +(document.getElementById('sysEff')?.value || 88) / 100;
+  const peakKW  = SOLAR_KWP_DC * sysEff;
+  const acLimit = SOLAR_KWP_DC / DC_AC_RATIO;
+  // Unclipped integral (for scale factor)
+  let unclipped = 0;
+  for (let i = 0; i < STEPS; i++)
+    unclipped += Math.max(0, peakKW * Math.sin(Math.PI * i * DT / 13)) * DT;
+  // Clipped integral
+  let clipped = 0;
+  for (let i = 0; i < STEPS; i++)
+    clipped += Math.min(Math.max(0, peakKW * Math.sin(Math.PI * i * DT / 13)), acLimit) * DT;
+  // Scale clipped integral to match PSH-based energy target
+  const pshKWh = SOLAR_KWP_DC * PSH * sysEff;
+  return unclipped > 0 ? clipped * (pshKWh / unclipped) : pshKWh;
+}
+
+function getSolarProfile() {
+  const sm  = SOLAR_MODELS[activeSolarModel];
+  // Scale the PROFILE array to match daily kWh
+  const rawSum = sm.PROFILE.reduce((s,p) => s + p, 0);
+  const scale  = sm.SOLAR_KWH_DAY / (rawSum * SOLAR_AC / Math.max(...sm.PROFILE));
+  return sm.PROFILE;
+}
+
+// Continuous sinusoidal solar model — returns kW at a given solar-hour offset (0–13)
+function solarKWatStep(i, sysEff) {
+  const sm      = SOLAR_MODELS[activeSolarModel];
+  const peakKW  = SOLAR_KWP_DC * (sysEff/100);
+  const acLimit = SOLAR_KWP_DC / DC_AC_RATIO; // AC inverter capacity clips output
+  let raw = 0;
+  if (sm.useSin) {
+    raw = Math.max(0, peakKW * Math.sin(Math.PI * (i * DT) / 13));
+  } else {
+    const PROFILE = sm.PROFILE;
+    const frac    = (i * DT) / 13 * (PROFILE.length - 1);
+    const idx     = Math.floor(frac);
+    const t       = frac - idx;
+    const p       = idx >= PROFILE.length - 1
+      ? PROFILE[PROFILE.length - 1]
+      : PROFILE[idx] * (1-t) + PROFILE[idx+1] * t;
+    raw = Math.max(0, peakKW * p);
+  }
+  return Math.min(raw, acLimit); // clip to AC inverter capacity
+}
+
+// Scale factor so total daily kWh matches the model
+function getSolarScale(sysEff) {
+  const rawKWh = Array.from({length:STEPS}, (_,i) => solarKWatStep(i, sysEff) * DT).reduce((a,b)=>a+b,0);
+  return getSolarKWh() / rawKWh;
+}
+
+// kWh mined per day for n miners at MINER_KW each
+function miningKWhDay(n, minerKW, sysEff) {
+  const scale = getSolarScale(sysEff);
+  let kWh = 0;
+  for (let i = 0; i < STEPS; i++) {
+    const solar = solarKWatStep(i, sysEff) * scale;
+    const avail = Math.max(0, solar - WH_KW);
+    // Cooling runs whenever at least 1 miner is running
+    const minersDraw = Math.min(n * minerKW, avail);
+    // Cooling always runs with mining — scale proportionally if solar is tight
+    const coolDraw   = minersDraw > 0 ? Math.min(COOLING_KW, Math.max(0, avail - minersDraw)) : 0;
+    kWh += (minersDraw + coolDraw) * DT;
+  }
+  return kWh;
+}
+
+// Daily spill for n miners
+// Daily spill for n miners
+function getSteadyStateSOC(n, minerKW, sysEff) {
+  // Simulate a full day with both charging and discharging.
+  // The steady-state starting SOC is the end-of-day SOC of that simulation.
+  // Run twice: first from 0 to get an estimate, second from that estimate.
+  // Two passes is sufficient — any cyclic system converges in 2 days.
+  if (LUNA_UNITS === 0) return 0;
+  const scale        = getSolarScale(sysEff);
+  const maxChargeKW  = LUNA_UNITS * LUNA_MAX_KW;
+  const maxDischKW   = LUNA_UNITS * LUNA_MAX_KW;
+  const battCap      = LUNA_UNITS * LUNA_KWH;
+  const MINS         = 24 * 60;
+
+  function runDay(startSOC) {
+    let soc = startSOC;
+    for (let m = 0; m < MINS; m++) {
+      const hr      = m / 60;
+      const solarHr = hr - 6;
+      let solar = 0;
+      if (solarHr >= 0 && solarHr <= 13) {
+        const i = Math.round(solarHr / 13 * STEPS);
+        solar = Math.min(solarKWatStep(i, sysEff) * scale, SOLAR_KWP_DC / DC_AC_RATIO);
+      }
+      const minSOC     = battCap * BATT_MIN_SOC;
+      const battAvail  = Math.max(0, soc - minSOC);
+      const canMine    = solar > 0 || battAvail > 1;
+      const demand     = canMine ? (n * minerKW + COOLING_KW) : 0;
+      const served     = Math.min(demand, solar);
+      const surplus    = solar - served;
+      // Charge from surplus
+      if (surplus > 0) {
+        const charged = Math.min(surplus, maxChargeKW, Math.max(0, battCap - soc) / LUNA_RT_EFF);
+        soc = Math.min(battCap, soc + charged * LUNA_RT_EFF / 60);
+      }
+      // Discharge to cover shortfall (including after-sunset mining)
+      const shortfall = demand - served;
+      if (shortfall > 0) {
+        const discharged = Math.min(shortfall, maxDischKW, battAvail * 60); // all in kW, battAvail*60 converts kWh→kW per minute
+        soc = Math.max(minSOC, soc - discharged / 60);
+      }
+    }
+    return soc;
+  }
+
+  // Two passes to converge
+  const endDay1 = runDay(0);
+  const endDay2 = runDay(endDay1);
+  return endDay2;
+}
+
+function dailySpill(n, minerKW, sysEff) {
+  const scale        = getSolarScale(sysEff);
+  const maxChargeKW  = LUNA_UNITS * LUNA_MAX_KW;
+  const battCap      = LUNA_UNITS * LUNA_KWH;
+  let spill       = 0;
+  let battSOC     = getSteadyStateSOC(n, minerKW, sysEff);
+  let battCharged = 0;
+  const minSOC_sp = battCap * BATT_MIN_SOC;
+  for (let i = 0; i < STEPS; i++) {
+    const solar      = solarKWatStep(i, sysEff) * scale;
+    const avail      = Math.max(0, solar - WH_KW);
+    const battAvailS = Math.max(0, battSOC - minSOC_sp);
+    const canMineS   = avail > 0 || battAvailS > 1;
+    const totalLoad  = canMineS ? (n * minerKW + COOLING_KW) : 0;
+    const served     = Math.min(totalLoad, avail);
+    let remaining    = avail - served;
+    // Charge from surplus
+    if (LUNA_UNITS > 0 && remaining > 0) {
+      const chargeRoom = battCap - battSOC;
+      const charged    = Math.min(remaining, maxChargeKW, chargeRoom / LUNA_RT_EFF);
+      battSOC          = Math.min(battCap, battSOC + charged * LUNA_RT_EFF * DT);
+      battCharged     += charged * DT;
+      remaining       -= charged;
+    }
+    // Discharge to cover shortfall after sunset
+    const shortfall = totalLoad - served;
+    if (LUNA_UNITS > 0 && shortfall > 0) {
+      const discharged = Math.min(shortfall, maxChargeKW, battAvailS / DT);
+      battSOC = Math.max(minSOC_sp, battSOC - discharged * DT);
+    }
+    spill += Math.max(0, remaining) * DT;
+  }
+  return { spill, battCharged };
+}
+
+// Effective solar hours — time when solar > WH_KW
+function solarHours(sysEff) {
+  const scale = getSolarScale(sysEff);
+  let hrs = 0;
+  for (let i = 0; i < STEPS; i++) {
+    const solar = solarKWatStep(i, sysEff) * scale;
+    if (solar > WH_KW) hrs += DT;
+  }
+  return hrs;
+}
+
+// Actual mining hours — solar hours + battery extension after sunset
+function miningHours(n, minerKW, sysEff) {
+  if (LUNA_UNITS === 0) return solarHours(sysEff);
+  const battCap    = LUNA_UNITS * LUNA_KWH;
+  const maxKW      = LUNA_UNITS * LUNA_MAX_KW;
+  const minSOC     = battCap * BATT_MIN_SOC;
+  const steadySOC  = getSteadyStateSOC(n, minerKW, sysEff);
+  const demand     = n * minerKW + COOLING_KW;
+  const scale      = getSolarScale(sysEff);
+  const acLimit    = SOLAR_KWP_DC / DC_AC_RATIO;
+  let battSOC      = steadySOC;
+  let miningMins   = 0;
+
+  for (let m = 0; m < 1440; m++) {
+    const hr = m / 60, solarHr = hr - 6;
+    let solar = 0;
+    if (solarHr >= 0 && solarHr <= 13) {
+      const i = Math.round(solarHr / 13 * STEPS);
+      solar = Math.min(solarKWatStep(i, sysEff) * scale, acLimit);
+    }
+    const battAvail = Math.max(0, battSOC - minSOC);
+    const canMine   = solar > 0 || battAvail > 1;
+    if (canMine) miningMins++;
+
+    const served    = Math.min(demand, solar);
+    const surplus   = solar - served;
+    if (surplus > 0) {
+      const charged = Math.min(surplus, maxKW, Math.max(0, battCap - battSOC) / LUNA_RT_EFF);
+      battSOC = Math.min(battCap, battSOC + charged * LUNA_RT_EFF / 60);
+    }
+    const shortfall = demand - served;
+    if (shortfall > 0 && battAvail > 1) {
+      // discharged is in kW, convert to kWh per minute (/60)
+      const discharged = Math.min(shortfall, maxKW, battAvail * 60) / 60;
+      battSOC = Math.max(minSOC, battSOC - discharged);
+    }
+  }
+  return Math.min(24, miningMins / 60);
+}
+
+// Zero-spill fleet size
+function zeroSpillFleet(minerKW, sysEff) {
+  // Find the largest fleet where spill is zero
+  // When battery is selected, also ensure battery gets meaningful charge
+  let prev = 999999;
+  let bestN = 1;
+  for (let n = 1; n <= 500; n++) {
+    const { spill, battCharged } = dailySpill(n, minerKW, sysEff);
+    if (prev - spill < 0.5) {
+      // Spill has stopped decreasing — we've found zero-spill point
+      // If battery selected, step back further to leave charging headroom
+      if (LUNA_UNITS > 0) {
+        // Walk back until battery charges to at least 50% of capacity
+        for (let m = n - 1; m >= 1; m--) {
+          const { battCharged: bc } = dailySpill(m, minerKW, sysEff);
+          if (bc >= LUNA_UNITS * LUNA_KWH * 0.5) return m;
+        }
+      }
+      return n - 1;
+    }
+    prev = spill;
+    bestN = n;
+  }
+  return bestN;
+}
+function getCoolingKW() {
+  return +(document.getElementById('coolingKW')?.value || COOLING_KW);
+}
+
+// ── CONTROLS ─────────────────────────────────────────────────────
+function updateRange(el) {
+  if (!el) return;
+  const pct = (el.value - el.min) / (el.max - el.min) * 100;
+  el.style.setProperty('--pct', pct + '%');
+}
+
+function setCoolingMode(mode) {
+  ['hydro','3u','air'].forEach(m => {
+    const btn = document.getElementById('cool' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (!btn) return;
+    const active = m === mode;
+    btn.style.background = active ? 'var(--gold)' : 'transparent';
+    btn.style.color       = active ? '#080b0f'    : 'var(--muted)';
+  });
+  const opts = mode === '3u'
+    ? [{v:'s23_3u',l:'S23 Hyd 3U · 1160 TH/s · 9.5 J/TH'},{v:'s21e_3u',l:'S21e XP Hyd 3U · 860 TH/s · 13.0 J/TH'},{v:'s19_3u',l:'S19 XP Hyd 3U · 512 TH/s · 20.7 J/TH'}]
+    : mode === 'air'
+    ? [{v:'s19k',l:'S19K Pro Air · 120 TH/s · 23.0 J/TH'}]
+    : [{v:'s23',l:'S23 Hyd · 580 TH/s · 9.5 J/TH'},{v:'s21',l:'S21 Hyd · 480 TH/s · 11.0 J/TH'},{v:'s21p',l:'S21+ Hyd 358 · 15.0 J/TH'},{v:'s21e',l:'S21e Hyd 332 · 17.0 J/TH'},{v:'s19',l:'S19 XP+ Hyd · 293 TH/s · 19.0 J/TH'}];
+  const sel = document.getElementById('minerSelect');
+  sel.innerHTML = opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+  // Default to s21e for hydro, first item otherwise
+  if (mode === 'hydro') sel.value = 's21e';
+  applyMinerChoice(sel.value);
+}
+
+function applyMinerChoice(key) {
+  const m = MINERS[key];
+  if (!m) return;
+  MINER_KW   = m.kw;
+  MINER_HASH = m.hash;
+  const note = document.getElementById('minerSpecNote');
+  if (note) note.textContent = `${m.kw} kW · ${m.hash} TH/s · ${(m.kw/m.hash*1000).toFixed(1)} J/TH`;
+  // Only update spec — do NOT reset miner count
+  recalc();
+}
+
+function autoSetMiners() {
+  const sysEff = +(document.getElementById('sysEff')?.value || 88);
+  // zeroSpillFleet now accounts for battery charging in dailySpill
+  // so this naturally finds the largest fleet that leaves zero spill
+  // after both mining AND battery are fully satisfied
+  const n = zeroSpillFleet(MINER_KW, sysEff);
+  const el = document.getElementById('nMiners');
+  const clamped = Math.min(+(el.max), Math.max(1, n));
+  el.value = clamped;
+  updateRange(el);
+  document.getElementById('nMinersDisplay').firstChild.textContent = clamped + ' ';
+  const { spill } = dailySpill(clamped, MINER_KW, sysEff);
+  const note = document.getElementById('autoMinerNote');
+  if (note) note.textContent = `${clamped} miners · ${(clamped * MINER_KW).toFixed(0)} kW · spill ${Math.round(spill)} kWh/day`;
+  recalc();
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────
+let chartA = null, chartB = null, chartC = null, chartD = null, chartE = null, chartF = null, chartG = null;
+
+function drawLoadProfile(n, sysEff) {
+  const ctx = document.getElementById('loadProfileCanvas').getContext('2d');
+  const scale = getSolarScale(sysEff);
+  const labels = [], solar = [], load = [], avail = [];
+  for (let i = 0; i <= STEPS; i += Math.floor(STEPS/48)) {
+    const h = 6 + i * DT; // 6am start
+    labels.push(h % 1 === 0 ? `${Math.floor(h)}:00` : '');
+    const s = solarKWatStep(i, sysEff) * scale;
+    const a = Math.max(0, s - WH_KW);
+    const l = Math.min(n * MINER_KW, a);
+    solar.push(s);
+    avail.push(a);
+    load.push(l);
+  }
+  if (chartA) chartA.destroy();
+  chartA = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Solar Output', data:solar, borderColor:'rgba(240,160,32,0.8)', backgroundColor:'rgba(240,160,32,0.08)', fill:true, tension:0.4, pointRadius:0, borderWidth:2 },
+        { label:'Available to Miners', data:avail, borderColor:'rgba(0,212,170,0.5)', backgroundColor:'rgba(0,212,170,0.05)', fill:true, tension:0.4, pointRadius:0, borderWidth:1, borderDash:[4,4] },
+        { label:'Fleet Draw', data:load, borderColor:'rgba(96,165,250,0.9)', backgroundColor:'rgba(96,165,250,0.12)', fill:true, tension:0.4, pointRadius:0, borderWidth:2 },
+        { label:'Cooling (' + COOLING_KW.toFixed(1) + ' kW)', data:load.map(v => v > 0 ? COOLING_KW : 0), borderColor:'rgba(255,77,109,0.7)', backgroundColor:'rgba(255,77,109,0.06)', fill:true, tension:0, pointRadius:0, borderWidth:1.5, borderDash:[3,3] },
+        ...(LUNA_UNITS > 0 ? [{ label:'Battery (' + (LUNA_UNITS * LUNA_KWH).toLocaleString() + ' kWh)', data:Array(labels.length).fill(Math.min(LUNA_UNITS * LUNA_MAX_KW, LUNA_UNITS * LUNA_KWH * LUNA_RT_EFF / 12)), borderColor:'rgba(96,165,250,0.5)', backgroundColor:'transparent', fill:false, tension:0, pointRadius:0, borderWidth:1.5, borderDash:[6,3] }] : []),
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#e8edf2', font:{family:'DM Mono',size:10}, boxWidth:12 } } },
+      scales:{
+        x:{ ticks:{ color:'#c8dce8', font:{size:9}, maxTicksLimit:8, maxRotation:0 }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y:{ ticks:{ color:'#c8dce8', font:{size:9}, callback:v=>v+'kW' }, grid:{ color:'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+function drawEnergyBalance(n, sysEff) {
+  const ctx = document.getElementById('energyBalanceCanvas').getContext('2d');
+  const scale      = getSolarScale(sysEff);
+  const totalSolar = getSolarKWh();
+  const mined      = miningKWhDay(n, MINER_KW, sysEff);
+  const { spill: spilledKWh } = dailySpill(n, MINER_KW, sysEff);
+  const spilled    = spilledKWh;
+  const noteB = document.getElementById('chartBNote');
+  if (noteB) noteB.textContent = Math.round(totalSolar).toLocaleString() + ' kWh produced today';
+
+  if (chartB) chartB.destroy();
+  chartB = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Daily Solar Budget'],
+      datasets: [
+        { label:'Mining Load',  data:[mined],     backgroundColor:'rgba(96,165,250,0.7)',  borderWidth:0 },
+        ...(LUNA_UNITS > 0 ? [{ label:'Battery (' + (LUNA_UNITS*LUNA_KWH) + ' kWh)', data:[LUNA_UNITS * LUNA_KWH * LUNA_RT_EFF], backgroundColor:'rgba(0,212,170,0.75)', borderWidth:0 }] : []),
+        { label:'Cooling',      data:[COOLING_KW * solarHours(sysEff)], backgroundColor:'rgba(255,77,109,0.5)', borderWidth:0 },
+        { label:'Spill (waste)',data:[spilled],   backgroundColor:'rgba(220,160,0,0.85)',  borderWidth:0 },
+      ]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#e8edf2', font:{family:'DM Mono',size:10}, boxWidth:12 } } },
+      scales:{
+        x:{ stacked:true, ticks:{ color:'#c8dce8', font:{size:9}, callback:v=>v+' kWh' }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y:{ stacked:true, ticks:{ color:'#e8edf2', font:{size:9,weight:'500'} }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+// ── LOAD TABLE ───────────────────────────────────────────────────
+function buildLoadTable(sysEff) {
+  const tbody = document.getElementById('loadTableBody');
+  const groups = [
+    { label:'1U · Antspace HW5', keys:['s23','s21','s21p','s21e','s19'] },
+    { label:'3U · Lian Li',      keys:['s23_3u','s21e_3u','s19_3u'] },
+    { label:'Air-Cooled',        keys:['s19k'] },
+  ];
+  let html = '';
+  const totalSolar = getSolarKWh();
+  groups.forEach(g => {
+    html += `<tr style="background:rgba(255,255,255,0.02)"><td colspan="10" style="padding:5px 10px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">${g.label}</td></tr>`;
+    g.keys.forEach(key => {
+      const m  = MINERS[key];
+      const n  = zeroSpillFleet(m.kw, sysEff);
+      const kw = n * m.kw;
+      const kwh= miningKWhDay(n, m.kw, sysEff);
+      const { spill: sp } = dailySpill(n, m.kw, sysEff);
+      const sh = solarHours(sysEff);
+      const ut = totalSolar > 0 ? ((kwh / totalSolar) * 100).toFixed(1) + '%' : '—';
+      html += `<tr>
+        <td style="color:var(--text)">${m.label}</td>
+        <td style="color:var(--muted);font-size:10px">${m.form}</td>
+        <td style="color:var(--text)">${m.kw.toFixed(3)}</td>
+        <td style="color:var(--muted)">${(m.kw/m.hash*1000).toFixed(1)}</td>
+        <td style="color:var(--gold)">${n}</td>
+        <td style="color:var(--text)">${kw.toFixed(0)}</td>
+        <td style="color:var(--red);font-size:10px">+${COOLING_KW.toFixed(1)}</td>
+        <td style="color:var(--gold);font-weight:600">${(kw + COOLING_KW).toFixed(0)}</td>
+        <td style="color:var(--green)">${kwh.toFixed(0)}</td>
+        <td style="color:var(--muted)">${sh.toFixed(1)}h</td>
+        <td style="color:var(--blue)">${ut}</td>
+        <td style="color:${sp < 10 ? 'var(--green)' : 'var(--muted)'}">${sp.toFixed(0)}</td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+}
+
+// ── LUNA 2000 CONTROL ────────────────────────────────────────────
+function setLunaUnits(n) {
+  LUNA_UNITS = n;
+  // Update pill buttons
+  for (let i = 0; i <= 6; i++) {
+    const btn = document.getElementById('luna' + i);
+    if (!btn) continue;
+    btn.style.background = i === n ? 'var(--gold)' : 'transparent';
+    btn.style.color       = i === n ? '#080b0f'    : 'var(--muted)';
+  }
+  const totalKWh  = n * LUNA_KWH;
+  const totalKW   = n * LUNA_MAX_KW;
+  const nightHrs  = 12; // 7pm-7am discharge window
+  const usableKWh = totalKWh * LUNA_RT_EFF;
+  const dischargeKW = Math.min(totalKW, usableKWh / nightHrs); // C-rate limited
+
+  const spec = document.getElementById('lunaSpecNote');
+  const kwh  = document.getElementById('lunaKwhNote');
+  const kw   = document.getElementById('lunaKwNote');
+  const headroomNote = document.getElementById('lunaHeadroomNote');
+  if (n === 0) {
+    if (spec) spec.textContent = 'No battery — solar-only operation';
+    if (kwh)  kwh.textContent  = '';
+    if (kw)   kw.textContent   = '';
+    if (headroomNote) headroomNote.textContent = '';
+  } else {
+    if (spec) spec.textContent = `${n} × Luna 2000-200KWH · LFP · 0.5C max`;
+    if (kwh)  kwh.textContent  = `${totalKWh.toLocaleString()} kWh installed · ${(usableKWh * 0.8).toFixed(0)} kWh usable (80% DoD · 20% floor · 91% RT eff)`;
+    if (kw)   kw.textContent   = `${totalKW} kW max discharge · ${dischargeKW.toFixed(1)} kW over 12h night`;
+    if (headroomNote) headroomNote.textContent = `⚡ Fleet reduced by ~${n * 100 / DC_AC_RATIO > 0 ? Math.round(n * LUNA_MAX_KW / MINER_KW) : 0} miners to create ${totalKW} kW charging headroom`;
+  }
+  recalc();
+}
+
+// ── 24H SIMULATION ───────────────────────────────────────────────
+// Runs a minute-by-minute simulation across a full 24h day
+// Returns arrays suitable for charting
+function simulate24h(n, sysEff) {
+  const MINS       = 24 * 60;
+  const dt         = 1 / 60; // hours per step
+  const scale      = getSolarScale(sysEff);
+  const fleetKW    = n * MINER_KW;
+  const totalBattKWh = LUNA_UNITS * LUNA_KWH;
+  const maxDischargeKW = LUNA_UNITS * LUNA_MAX_KW;
+  const maxChargeKW    = LUNA_UNITS * LUNA_MAX_KW; // symmetric
+  const battCap        = totalBattKWh; // usable (100% DoD commercial)
+
+  // Starting SOC = steady-state (end of previous day = start of this day)
+  let battSOC = LUNA_UNITS > 0 ? getSteadyStateSOC(n, MINER_KW, sysEff) : 0;
+
+  const labels        = [];
+  const solarArr      = []; // solar output kW
+  const toLoadArr     = []; // solar going directly to load
+  const toBattArr     = []; // solar going to battery (charging)
+  const fromBattArr   = []; // battery discharging to load
+  const socArr        = []; // battery SOC in kWh
+  const socPctArr     = []; // battery SOC as %
+  const spillArr      = []; // wasted solar
+
+  for (let m = 0; m < MINS; m++) {
+    const hr = m / 60; // 0–24
+    // Solar only available 6am–7pm (solar hours 0–13 map to 6–19)
+    const solarHr = hr - 6; // offset into solar window
+    const solar = (solarHr >= 0 && solarHr <= 13)
+      ? solarKWatStep(Math.round(solarHr / 13 * STEPS), sysEff) * scale
+      : 0;
+
+    // Miners run when solar available OR battery has charge above 20% floor
+    const minSOC_sim  = battCap * BATT_MIN_SOC;
+    const battAvail   = Math.max(0, battSOC - minSOC_sim); // energy above 20% floor
+    const canMine     = solar > 0 || (LUNA_UNITS > 0 && battAvail > 1);
+    const demand      = canMine ? (fleetKW + COOLING_KW) : 0;
+
+    let toLoad  = 0;
+    let toBatt  = 0;
+    let fromBatt= 0;
+    let spill   = 0;
+
+    if (solar >= demand) {
+      // Solar covers mining + cooling + has surplus
+      toLoad = demand;
+      const surplus    = solar - demand;
+      const chargeRoom = battCap - battSOC;
+      const charged    = Math.min(surplus, maxChargeKW, chargeRoom / LUNA_RT_EFF);
+      toBatt  = charged;
+      battSOC = Math.min(battCap, battSOC + charged * LUNA_RT_EFF * dt);
+      spill   = (surplus - charged) * dt;
+    } else {
+      // Solar insufficient — battery covers shortfall (or all of demand after sunset)
+      toLoad = solar;
+      const shortfall = demand - solar;
+      const avail     = Math.min(shortfall, maxDischargeKW, battAvail / dt);
+      fromBatt = avail;
+      battSOC  = Math.max(minSOC_sim, battSOC - avail * dt);
+      toLoad   = solar + fromBatt;
+    }
+
+    // Label every 60 mins
+    if (m % 60 === 0) {
+      const hh = Math.floor(hr).toString().padStart(2,'0');
+      labels.push(hh + ':00');
+    } else if (m % 30 === 0) {
+      labels.push('');
+    } else {
+      labels.push('');
+    }
+
+    solarArr.push(parseFloat(solar.toFixed(1)));
+    toLoadArr.push(parseFloat(toLoad.toFixed(1)));
+    toBattArr.push(parseFloat(toBatt.toFixed(1)));
+    fromBattArr.push(parseFloat(fromBatt.toFixed(1)));
+    socArr.push(parseFloat(battSOC.toFixed(1)));
+    socPctArr.push(battCap > 0 ? parseFloat((battSOC / battCap * 100).toFixed(1)) : 0);
+    spillArr.push(parseFloat(spill.toFixed(3)));
+  }
+
+  // Downsample to 30-min points using window average — eliminates boundary artefacts
+  const ds = (arr) => {
+    const out = [];
+    for (let i = 0; i < 1440; i += 30) {
+      const window = arr.slice(i, Math.min(i + 30, arr.length));
+      out.push(parseFloat((window.reduce((a,b) => a+b, 0) / window.length).toFixed(2)));
+    }
+    return out;
+  };
+  // SOC — use midpoint of each 30-min window for smoothest curve
+  const dsSoc = (arr) => {
+    const out = [];
+    for (let i = 0; i < 1440; i += 30) {
+      const mid = Math.min(i + 15, arr.length - 1);
+      out.push(arr[mid]);
+    }
+    return out;
+  };
+  const lbls30 = [];
+  for (let h = 0; h < 24; h++) {
+    lbls30.push(h.toString().padStart(2,'0') + ':00');
+    lbls30.push(h.toString().padStart(2,'0') + ':30');
+  }
+
+  return {
+    labels: lbls30,
+    solar:    ds(solarArr),
+    toLoad:   ds(toLoadArr),
+    toBatt:   ds(toBattArr),
+    fromBatt: ds(fromBattArr),
+    soc:      dsSoc(socArr),
+    socPct:   dsSoc(socPctArr),
+    spill:    ds(spillArr),
+    battCap,
+  };
+}
+
+function drawEnergyFlow(sim) {
+  const ctx = document.getElementById('energyFlowCanvas')?.getContext('2d');
+  if (!ctx) return;
+  if (chartC) { chartC.destroy(); chartC = null; }
+
+  const note = document.getElementById('chartCNote');
+  if (note) note.textContent = LUNA_UNITS > 0
+    ? `${LUNA_UNITS} × Luna 2000 · ${LUNA_UNITS * LUNA_KWH} kWh`
+    : 'No battery selected';
+
+  chartC = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sim.labels,
+      datasets: [
+        {
+          label: 'Solar Output',
+          data: sim.solar,
+          borderColor: 'rgba(240,160,32,0.85)',
+          backgroundColor: 'rgba(240,160,32,0.07)',
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        },
+        {
+          label: 'To Load (miners + cooling)',
+          data: sim.toLoad,
+          borderColor: 'rgba(96,165,250,0.9)',
+          backgroundColor: 'rgba(96,165,250,0.12)',
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        },
+        ...(LUNA_UNITS > 0 ? [{
+          label: 'Solar → Battery (charging)',
+          data: sim.toBatt,
+          borderColor: 'rgba(0,212,170,0.8)',
+          backgroundColor: 'rgba(0,212,170,0.08)',
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5, borderDash: [4,3],
+        },
+        {
+          label: 'Battery → Load (discharging)',
+          data: sim.fromBatt.map(v => -v),
+          borderColor: 'rgba(167,139,250,0.9)',
+          backgroundColor: 'rgba(167,139,250,0.12)',
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2, borderDash: [],
+        }] : []),
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 10, padding: 10 } },
+        tooltip: { bodyFont: { family: 'DM Mono', size: 10 }, titleFont: { family: 'DM Mono', size: 10 } }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 12, maxRotation: 0 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: v => v + ' kW' },
+          grid: {
+            color: (ctx) => ctx.tick.value === 0 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.04)',
+            lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1,
+          }
+        }
+      }
+    }
+  });
+}
+
+function drawSOC(sim) {
+  const ctx = document.getElementById('socCanvas')?.getContext('2d');
+  if (!ctx) return;
+  if (chartD) { chartD.destroy(); chartD = null; }
+
+  const note = document.getElementById('chartDNote');
+  if (LUNA_UNITS === 0) {
+    if (note) note.textContent = 'Select battery above';
+    // Draw empty chart with message
+    chartD = new Chart(ctx, {
+      type: 'line',
+      data: { labels: sim.labels, datasets: [] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: { ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: { min: 0, max: 100, ticks: { color: '#c8dce8', font: { size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        }
+      }
+    });
+    return;
+  }
+
+  if (note) note.textContent = `${sim.battCap} kWh total · charges from solar surplus`;
+
+  // Find min/max SOC for annotation
+  const minSOC  = Math.min(...sim.socPct).toFixed(0);
+  const minIdx  = sim.socPct.indexOf(Math.min(...sim.socPct));
+  const minLabel= sim.labels[minIdx];
+
+  chartD = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sim.labels,
+      datasets: [
+        {
+          label: 'SOC %',
+          data: sim.socPct,
+          borderColor: 'rgba(0,212,170,0.9)',
+          backgroundColor: (ctx) => {
+            const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
+            g.addColorStop(0,   'rgba(0,212,170,0.25)');
+            g.addColorStop(0.6, 'rgba(0,212,170,0.08)');
+            g.addColorStop(1,   'rgba(0,212,170,0.02)');
+            return g;
+          },
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+        },
+        {
+          label: '20% min threshold',
+          data: Array(sim.labels.length).fill(20),
+          borderColor: 'rgba(255,77,109,0.4)',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0, pointRadius: 0, borderWidth: 1, borderDash: [5,4],
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 10 } },
+        tooltip: { bodyFont: { family: 'DM Mono', size: 10 }, callbacks: {
+          label: (ctx) => ctx.dataset.label + ': ' + ctx.raw + '%'
+        }}
+      },
+      scales: {
+        x: {
+          ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 12, maxRotation: 0 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: v => v + '%' },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// ── FULL UTILISATION HOURS ───────────────────────────────────────
+function getFullUtilHours(n, sysEff) {
+  const scale     = getSolarScale(sysEff);
+  const demand    = n * MINER_KW + COOLING_KW;
+  const acLimit   = SOLAR_KWP_DC / DC_AC_RATIO;
+  let fullMins = 0;
+  // Use minute-by-minute for accuracy
+  for (let m = 0; m < 24 * 60; m++) {
+    const hr = m / 60, solarHr = hr - 6;
+    if (solarHr < 0 || solarHr > 13) continue;
+    const i     = Math.round(solarHr / 13 * STEPS);
+    const solar = Math.min(solarKWatStep(i, sysEff) * scale, acLimit);
+    if (solar >= demand) fullMins++;
+  }
+  return fullMins / 60;
+}
+
+// ── DOD NOTE UPDATER ─────────────────────────────────────────────
+function updateDoDNote() {
+  BATT_MIN_SOC = 1 - BATT_DOD; // keep the floor in sync
+  const el = document.getElementById('battDoDNote');
+  if (el) {
+    const floorPct = Math.round((1 - BATT_DOD) * 100);
+    el.textContent = floorPct + '% minimum SOC floor · ' + Math.round(BATT_DOD * 100) + '% usable';
+    el.style.color = BATT_DOD >= 0.90 ? 'var(--gold)' : 'var(--green)';
+  }
+}
+
+// ── INVERTER COUNT CONTROL ───────────────────────────────────────
+function updateInvDisplay() {
+  // Derived — not an input
+  INV_COUNT    = Math.round(SOLAR_KWP_DC / (DC_AC_RATIO * INV_KW));
+  SOLAR_AC_INV = INV_COUNT * INV_KW;
+  const actual = (SOLAR_KWP_DC / SOLAR_AC_INV).toFixed(3);
+  const cd = document.getElementById('invCountDisplay');
+  if (cd) cd.textContent = INV_COUNT;
+  const sn = document.getElementById('invSpecNote');
+  if (sn) sn.textContent = INV_COUNT + ' × 150 kW = ' + SOLAR_AC_INV.toLocaleString() + ' kW AC total';
+  const dn = document.getElementById('invDcAcNote');
+  if (dn) {
+    dn.textContent = 'Actual DC:AC = ' + actual + '×';
+    dn.style.color = DC_AC_RATIO > 1.20 ? 'var(--red)' : DC_AC_RATIO > 1.10 ? 'var(--gold)' : 'var(--green)';
+  }
+  const sid = document.getElementById('solarInvDisplay');
+  if (sid) sid.textContent = INV_COUNT;
+  const sinn = document.getElementById('solarInvNote');
+  if (sinn) sinn.textContent = INV_COUNT + ' × 150 kW = ' + SOLAR_AC_INV.toLocaleString() + ' kW AC';
+}
+
+function setInvCount(n) { updateInvDisplay(); } // no-op: inverters are derived
+
+// ── SOLAR DISPLAY UPDATER ────────────────────────────────────────
+function updateSolarDisplay() {
+  updateInvDisplay();
+  const kwp    = (PANEL_COUNT * PANEL_W / 1000).toFixed(0);
+  const acKW   = (SOLAR_KWP_DC / DC_AC_RATIO).toFixed(0);
+  const dailyKwh = getSolarKWh().toFixed(0);
+
+  // Panel kWp note
+  const pkNote = document.getElementById('panelKWpNote');
+  if (pkNote) pkNote.textContent = `${(+kwp).toLocaleString()} kWp DC · ${PANEL_W}W panels`;
+
+  // DC:AC clip note
+  const clipNote = document.getElementById('dcacClipNote');
+  if (clipNote) {
+    const clipPct = ((1 - 1/DC_AC_RATIO) * 100).toFixed(1);
+    clipNote.textContent = DC_AC_RATIO > 1.10
+      ? `${clipPct}% clipping at peak — AC limited to ${(+acKW).toLocaleString()} kW`
+      : `Minimal clipping · AC output ${(+acKW).toLocaleString()} kW`;
+    clipNote.style.color = DC_AC_RATIO > 1.20 ? 'var(--red)' : 'var(--gold)';
+  }
+
+  // Header badge
+  const badge = document.querySelector('.header-badge');
+  if (badge) badge.textContent = `Sandton · ${PANEL_COUNT.toLocaleString()} × ${PANEL_W}W · ${(+kwp).toLocaleString()} kWp`;
+
+  // Assumptions solar
+  const assumSolar = document.getElementById('assumSolar');
+  if (assumSolar) assumSolar.textContent =
+    `${PANEL_COUNT.toLocaleString()} × ${PANEL_W}W · ${(+kwp).toLocaleString()} kWp DC · ${(+acKW).toLocaleString()} kW AC · DC:AC ${DC_AC_RATIO.toFixed(2)} · PSH ${PSH}h · ${(+dailyKwh).toLocaleString()} kWh/day`;
+}
+
+// ── SOLAR OUTPUT PROFILE WITH CLIPPING ──────────────────────────
+function drawSolarProfile(sysEff) {
+  const ctx = document.getElementById('solarProfileCanvas')?.getContext('2d');
+  if (!ctx) return;
+  if (chartE) { chartE.destroy(); chartE = null; }
+
+  const scale    = getSolarScale(sysEff);
+  const acLimit  = SOLAR_KWP_DC / DC_AC_RATIO;   // AC inverter cap kW
+  const peakDC   = SOLAR_KWP_DC * (sysEff / 100); // DC peak before clipping
+
+  // Build 30-min labels and data across 24h
+  const labels = [];
+  const dcRaw  = [];  // unconstrained DC output
+  const acOut  = [];  // clipped AC output
+  const clipped = []; // the portion that gets clipped
+
+  for (let m = 0; m < 24 * 60; m += 30) {
+    const hr = m / 60;
+    const hh = Math.floor(hr).toString().padStart(2, '0');
+    const mm = (hr % 1 === 0.5) ? '30' : '00';
+    labels.push(hh + ':' + mm);
+
+    const solarHr = hr - 6;
+    let raw = 0;
+    if (solarHr >= 0 && solarHr <= 13) {
+      const sm = SOLAR_MODELS[activeSolarModel];
+      if (sm.useSin) {
+        raw = Math.max(0, peakDC * Math.sin(Math.PI * solarHr / 13));
+      } else {
+        const frac = solarHr / 13 * (sm.PROFILE.length - 1);
+        const idx  = Math.floor(frac);
+        const t    = frac - idx;
+        const p    = idx >= sm.PROFILE.length - 1
+          ? sm.PROFILE[sm.PROFILE.length - 1]
+          : sm.PROFILE[idx] * (1 - t) + sm.PROFILE[idx + 1] * t;
+        raw = Math.max(0, peakDC * p);
+      }
+    }
+
+    const ac   = Math.min(raw, acLimit);
+    const clip = Math.max(0, raw - acLimit);
+    dcRaw.push(parseFloat(raw.toFixed(1)));
+    acOut.push(parseFloat(ac.toFixed(1)));
+    clipped.push(parseFloat(clip.toFixed(1)));
+  }
+
+  const totalClippedKWh = clipped.reduce((a, b) => a + b, 0) * 0.5; // 30-min steps
+  const totalDCKWh      = dcRaw.reduce((a, b) => a + b, 0) * 0.5;
+  const clipPct         = totalDCKWh > 0 ? (totalClippedKWh / totalDCKWh * 100).toFixed(1) : 0;
+
+  // Cumulative AC — use getSolarScale + solarKWatStep, exactly as all other simulations do
+  // solarKWatStep clips to acLimit; getSolarScale maps to PSH kWh target
+  // This is the same pipeline used by miningKWhDay, dailySpill, simulate24h etc.
+  const _cumScale = getSolarScale(sysEff);
+  const cumAC = [];
+  let runningKWh = 0;
+  // Sample at 30-min points (48 points across 24h)
+  for (let m = 0; m < 48; m++) {
+    const hr = m * 0.5;
+    const solarHr = hr - 6;
+    let kw = 0;
+    if (solarHr >= 0 && solarHr <= 13) {
+      const i = Math.round(solarHr / 13 * STEPS);
+      kw = solarKWatStep(i, sysEff) * _cumScale;
+    }
+    runningKWh += kw * 0.5; // 0.5h per step
+    cumAC.push(parseFloat(runningKWh.toFixed(1)));
+  }
+  const totalACKWh = runningKWh;
+
+  const note = document.getElementById('chartENote');
+  if (note) {
+    note.textContent = totalClippedKWh > 1
+      ? `${totalClippedKWh.toFixed(0)} kWh clipped/day (${clipPct}% loss) · DC:AC ${DC_AC_RATIO.toFixed(2)}×`
+      : `No clipping · DC:AC ${DC_AC_RATIO.toFixed(2)}× · all DC passes through`;
+    note.style.color = totalClippedKWh > 50 ? 'var(--red)' : totalClippedKWh > 1 ? 'var(--gold)' : 'var(--green)';
+  }
+
+  const endLabelPlugin = {
+    id: 'endLabel',
+    afterDatasetsDraw(chart) {
+      const dsIdx = chart.data.datasets.findIndex(d => d.label.startsWith('Cumulative'));
+      if (dsIdx < 0) return;
+      const meta = chart.getDatasetMeta(dsIdx);
+      const last = meta.data[meta.data.length - 1];
+      if (!last) return;
+      const val = chart.data.datasets[dsIdx].data[chart.data.datasets[dsIdx].data.length - 1];
+      const c = chart.ctx;
+      c.save();
+      c.font = '500 11px DM Mono, monospace';
+      c.fillStyle = 'rgba(167,139,250,1)';
+      c.textAlign = 'right';
+      c.textBaseline = 'bottom';
+      c.fillText(Math.round(val).toLocaleString() + ' kWh', last.x - 8, last.y - 6);
+      c.restore();
+    }
+  };
+
+  chartE = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'DC Output (before clipping)',
+          data: dcRaw,
+          borderColor: 'rgba(240,160,32,0.5)',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 3],
+        },
+        {
+          label: 'AC Output (inverter limited)',
+          data: acOut,
+          borderColor: 'rgba(0,212,170,0.9)',
+          backgroundColor: 'rgba(0,212,170,0.08)',
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        },
+        {
+          label: 'Clipped (lost to inverter limit)',
+          data: clipped,
+          borderColor: 'rgba(220,160,0,0.85)',
+          backgroundColor: 'rgba(220,160,0,0.30)',
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5,
+        },
+        {
+          label: 'Cumulative AC produced',
+          data: cumAC,
+          borderColor: 'rgba(167,139,250,0.9)',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0.4,
+          pointRadius: cumAC.map((_, i) => i === cumAC.length - 1 ? 6 : 0),
+          pointBackgroundColor: 'rgba(167,139,250,0.9)',
+          borderWidth: 2, borderDash: [6, 3],
+          yAxisID: 'y2',
+        },
+      ]
+    },
+    plugins: [endLabelPlugin],
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 10, padding: 12 }
+        },
+        tooltip: {
+          bodyFont: { family: 'DM Mono', size: 10 },
+          callbacks: { label: ctx => ctx.dataset.label.startsWith('Cumulative') ? ctx.dataset.label + ': ' + ctx.raw.toFixed(0) + ' kWh total' : ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + ' kW' }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 13, maxRotation: 0 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          min: 0,
+          position: 'left',
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: v => v + ' kW' },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y2: {
+          min: 0,
+          max: Math.ceil(totalACKWh / 500) * 500,
+          position: 'right',
+          display: false,
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+// ── HOURLY CONSUMPTION STACKED BAR ──────────────────────────────
+function drawHourlyConsumption(n, sysEff) {
+  const ctx = document.getElementById('consumptionCanvas')?.getContext('2d');
+  if (!ctx) return;
+  if (chartF) { chartF.destroy(); chartF = null; }
+
+  const scale       = getSolarScale(sysEff);
+  const fleetKW     = n * MINER_KW;
+  const acLimit     = SOLAR_KWP_DC / DC_AC_RATIO;
+  const battCap     = LUNA_UNITS * LUNA_KWH;
+  const maxChargeKW = LUNA_UNITS * LUNA_MAX_KW;
+
+  // Hourly buckets 0–23
+  const miningKWh  = new Array(24).fill(0);
+  const coolingKWh = new Array(24).fill(0);
+  const battKWh    = new Array(24).fill(0);
+  const dischKWh   = new Array(24).fill(0);
+  const spillKWh   = new Array(24).fill(0);
+
+  // Start from steady-state SOC (what battery holds overnight)
+  let battSOC = getSteadyStateSOC(n, MINER_KW, sysEff);
+  const dt = 1/60; // hour per minute
+
+  for (let m = 0; m < 24 * 60; m++) {
+    const hr      = Math.floor(m / 60);
+    const solarHr = m / 60 - 6;
+    const sm      = SOLAR_MODELS[activeSolarModel];
+    const peakKW  = SOLAR_KWP_DC * (sysEff / 100);
+
+    // Raw solar kW this minute
+    let rawSolar = 0;
+    if (solarHr >= 0 && solarHr <= 13) {
+      if (sm.useSin) {
+        rawSolar = Math.max(0, peakKW * Math.sin(Math.PI * solarHr / 13));
+      } else {
+        const frac = solarHr / 13 * (sm.PROFILE.length - 1);
+        const idx  = Math.floor(frac);
+        const t    = frac - idx;
+        const p    = idx >= sm.PROFILE.length - 1
+          ? sm.PROFILE[sm.PROFILE.length - 1]
+          : sm.PROFILE[idx] * (1 - t) + sm.PROFILE[idx + 1] * t;
+        rawSolar = Math.max(0, peakKW * p);
+      }
+    }
+    // Apply scaling and AC clipping
+    const solar = Math.min(rawSolar * scale, acLimit);
+
+    // Allocate: mining+cooling (solar first, then battery) → charge battery → spill
+    const minSOC_h    = battCap * BATT_MIN_SOC;
+    const battAvailH  = Math.max(0, battSOC - minSOC_h);
+    const canMineH    = solar > 0 || battAvailH > 1;
+    const totalLoad   = canMineH ? (fleetKW + COOLING_KW) : 0;
+    let remaining     = solar;
+
+    // 1. Mining + Cooling — serve from solar first
+    const loadServed  = Math.min(totalLoad, remaining);
+    remaining        -= loadServed;
+    // Split proportionally within the block
+    const mined = loadServed > 0 ? loadServed * (fleetKW / totalLoad) : 0;
+    const cool  = loadServed > 0 ? loadServed * (COOLING_KW / totalLoad) : 0;
+    miningKWh[hr]  += mined * dt;
+    coolingKWh[hr] += cool * dt;
+
+    // 2. Battery charging from surplus (only when load is fully served)
+    if (LUNA_UNITS > 0 && battCap > 0 && remaining > 0) {
+      const chargeRoom = battCap - battSOC;
+      const charged    = Math.min(remaining, maxChargeKW, chargeRoom / LUNA_RT_EFF);
+      remaining       -= charged;
+      battSOC          = Math.min(battCap, battSOC + charged * LUNA_RT_EFF * dt);
+      battKWh[hr]     += charged * dt;
+    }
+
+    // 2b. Battery discharge — covers shortfall, powers mining + cooling
+    if (LUNA_UNITS > 0 && battCap > 0 && canMineH && loadServed < totalLoad) {
+      const shortfall  = totalLoad - loadServed;
+      const discharge  = Math.min(shortfall, maxChargeKW, battAvailH / dt);
+      battSOC          = Math.max(minSOC_h, battSOC - discharge * dt);
+      dischKWh[hr]    -= discharge * dt; // negative = discharge
+      // Allocate discharged energy to mining + cooling proportionally
+      const dischMined = totalLoad > 0 ? discharge * (fleetKW  / totalLoad) : 0;
+      const dischCool  = totalLoad > 0 ? discharge * (COOLING_KW / totalLoad) : 0;
+      miningKWh[hr]   += dischMined * dt;
+      coolingKWh[hr]  += dischCool  * dt;
+    }
+
+    // 3. Spill
+    spillKWh[hr] += remaining * dt;
+  }
+
+  // Labels: 00:00 – 23:00
+  const labels = Array.from({length: 24}, (_, h) => h.toString().padStart(2, '0') + ':00');
+
+  // Summary for note
+  const totalMining  = miningKWh.reduce((a, b)  => a + b, 0);
+  const totalCooling = coolingKWh.reduce((a, b) => a + b, 0);
+  const totalBatt    = battKWh.reduce((a, b)    => a + b, 0);
+  const totalSpill   = spillKWh.reduce((a, b)   => a + b, 0);
+  const totalSolar   = totalMining + totalCooling + totalBatt + totalSpill;
+
+  const totalDisch   = dischKWh.reduce((a, b)  => a + b, 0); // already negative
+  const note = document.getElementById('chartFNote');
+  if (note) note.textContent =
+    `Mining ${totalMining.toFixed(0)} · Cooling ${totalCooling.toFixed(0)} · ` +
+    (LUNA_UNITS > 0 ? `Batt ↑${totalBatt.toFixed(0)} ↓${Math.abs(totalDisch).toFixed(0)} · ` : '') +
+    `Spill ${totalSpill.toFixed(0)} kWh/day`;
+
+  chartF = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Mining (kWh)',
+          data: miningKWh.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(96,165,250,0.80)',
+          borderWidth: 0,
+          stack: 'solar',
+        },
+        {
+          label: 'Cooling (kWh)',
+          data: coolingKWh.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(255,77,109,0.70)',
+          borderWidth: 0,
+          stack: 'solar',
+        },
+        ...(LUNA_UNITS > 0 ? [
+        {
+          label: 'Battery Charging (kWh)',
+          data: battKWh.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(0,212,170,0.75)',
+          borderWidth: 0,
+          stack: 'solar',
+        },
+        {
+          label: 'Battery Discharge (kWh)',
+          data: dischKWh.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(167,139,250,0.75)',
+          borderWidth: 0,
+          stack: 'solar',
+          base: 0,
+        }] : []),
+        {
+          label: 'Spill (kWh)',
+          data: spillKWh.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(220,160,0,0.80)',
+          borderWidth: 0,
+          stack: 'solar',
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#e8edf2', font: { family: 'DM Mono', size: 9 },
+            boxWidth: 10, padding: 12
+          }
+        },
+        tooltip: {
+          bodyFont: { family: 'DM Mono', size: 10 },
+          titleFont: { family: 'DM Mono', size: 10 },
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + ' kWh',
+            footer: items => {
+              const total = items.reduce((s, i) => s + i.raw, 0);
+              return 'Total: ' + total.toFixed(1) + ' kWh';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { color: '#c8dce8', font: { size: 8 }, maxRotation: 0 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          stacked: true,
+          ticks: {
+            color: '#c8dce8', font: { size: 9 },
+            callback: v => v + ' kWh'
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// ── ENERGY WATERFALL ─────────────────────────────────────────────
+function drawWaterfall(n, sysEff) {
+  const ctx = document.getElementById('waterfallCanvas')?.getContext('2d');
+  if (!ctx) return;
+  if (chartG) { chartG.destroy(); chartG = null; }
+
+  // All values scaled to PSH-adjusted daily kWh (same scale as everything else)
+  const scale    = getSolarScale(sysEff);
+  const acLimit  = SOLAR_KWP_DC / DC_AC_RATIO;
+  const peakKW   = SOLAR_KWP_DC * (sysEff / 100);
+
+  // Nameplate: what panels would produce at 100% efficiency, no clipping
+  // = kWp × PSH (no sysEff, no clipping)
+  const nameplateKWh = SOLAR_KWP_DC * PSH;
+
+  // DC after system losses (sysEff applied): kWp × PSH × sysEff
+  const dcAfterLossesKWh = SOLAR_KWP_DC * PSH * (sysEff / 100);
+  const sysLossKWh = nameplateKWh - dcAfterLossesKWh;
+
+  // AC after clipping: integrate clipped profile × scale
+  let acKWh = 0, clippingKWh = 0;
+  for (let i = 0; i < STEPS; i++) {
+    const raw = Math.max(0, peakKW * Math.sin(Math.PI * i * DT / 13));
+    const scaled = raw * scale;
+    const ac  = Math.min(scaled, acLimit * scale / (peakKW > 0 ? peakKW : 1) * peakKW);
+    // Simpler: use solarKWatStep which already handles clipping+scale
+    const acKW = solarKWatStep(i, sysEff) * scale;
+    acKWh      += acKW * DT;
+    clippingKWh += Math.max(0, raw * scale - acKW) * DT;
+  }
+  // acKWh = getSolarKWh() by definition (solarKWatStep * scale integrated)
+  acKWh = getSolarKWh(); // use the canonical value directly
+  clippingKWh = dcAfterLossesKWh - acKWh;
+
+  // Consumers
+  const minedKWh   = miningKWhDay(n, MINER_KW, sysEff);
+  const coolingKWh = COOLING_KW * solarHours(sysEff);
+  const { spill: spillKWh } = dailySpill(n, MINER_KW, sysEff);
+  const battUsed   = Math.max(0, acKWh - minedKWh - coolingKWh - spillKWh);
+  // Battery round-trip loss: 1 cycle/day × capacity × loss fraction
+  const battCycleKWh  = LUNA_UNITS * LUNA_KWH; // kWh charged in one cycle
+  const battRTLossKWh = LUNA_UNITS > 0 ? battCycleKWh * BATT_RT_LOSS : 0;
+
+  const note = document.getElementById('chartGNote');
+  if (note) note.textContent = Math.round(nameplateKWh).toLocaleString() + ' kWh nameplate → ' + Math.round(minedKWh).toLocaleString() + ' kWh mined (' + (minedKWh/nameplateKWh*100).toFixed(0) + '% conversion)';
+
+  const GOLD  = 'rgba(240,160,32,0.85)';
+  const GREEN = 'rgba(0,212,170,0.8)';
+  const RED   = 'rgba(255,100,100,0.8)';
+  const BLUE  = 'rgba(96,165,250,0.8)';
+  const PINK  = 'rgba(255,77,109,0.75)';
+  const TEAL  = 'rgba(0,200,160,0.75)';
+  const AMBER = 'rgba(220,160,0,0.85)';
+  const GRAY  = 'rgba(100,130,150,0.6)';
+
+  // Waterfall: each bar is [lo, hi]
+  // Starting bar sits at [0, value]
+  // Loss bar hangs down: [runningLevel - loss, runningLevel]
+  // Subtotal/total sits at [0, value]
+  let level = nameplateKWh;
+
+  const labels = ['DC nameplate', 'System losses', 'AC clipping', 'AC delivered',
+    'Cooling', ...(LUNA_UNITS > 0 ? ['Batt RT loss'] : []), 'Mining load', 'Spill'];
+  const bars   = [];
+  const colors = [];
+
+  // 1. DC nameplate — base bar
+  bars.push([0, nameplateKWh]); colors.push(GOLD);
+  // 2. System losses — hangs down from nameplate
+  bars.push([nameplateKWh - sysLossKWh, nameplateKWh]); colors.push(RED);
+  level = nameplateKWh - sysLossKWh; // = dcAfterLossesKWh
+  // 3. AC clipping — hangs down from DC level
+  bars.push([level - clippingKWh, level]); colors.push(RED);
+  level = level - clippingKWh; // = acKWh
+  // 4. AC delivered — subtotal at [0, acKWh]
+  bars.push([0, acKWh]); colors.push(GREEN);
+  // 5. Cooling — hangs down from AC level
+  bars.push([level - coolingKWh, level]); colors.push(PINK);
+  level -= coolingKWh;
+  // 6. Battery RT loss — hangs down from cooling level
+  if (LUNA_UNITS > 0) {
+    bars.push([level - battRTLossKWh, level]); colors.push(RED);
+    level -= battRTLossKWh;
+  }
+  // 7. Mining load — hangs down from remaining
+  bars.push([level - minedKWh, level]); colors.push(BLUE);
+  level -= minedKWh;
+
+  // 8. Spill — hangs down
+  bars.push([level - spillKWh, level]); colors.push(AMBER);
+
+
+  const waterfallLabelPlugin = {
+    id: 'waterfallLabels',
+    afterDatasetsDraw(chart) {
+      const c = chart.ctx;
+      const ds = chart.data.datasets[0];
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        const [lo, hi] = ds.data[i];
+        const val = Math.abs(hi - lo);
+        if (val < 1) return;
+        const label = val >= 1000
+          ? (val / 1000).toFixed(1) + 'k'
+          : Math.round(val).toLocaleString();
+        const isLoss = hi > lo && i > 0 && i !== 3 && i !== (ds.data.length - 1); // loss bars hang from top
+        const isBase = lo === 0; // base bars start at 0
+        const barTop  = Math.min(bar.y, bar.base);
+        const barBot  = Math.max(bar.y, bar.base);
+        const barMid  = (barTop + barBot) / 2;
+        const barH    = barBot - barTop;
+        c.save();
+        c.font = '500 9px DM Mono, monospace';
+        c.textAlign = 'center';
+        if (barH > 18) {
+          // Inside bar — white text centred
+          c.textBaseline = 'middle';
+          c.fillStyle = 'rgba(255,255,255,0.9)';
+          c.fillText(label, bar.x, barMid);
+        } else {
+          // Above bar — light text with background pill for legibility
+          c.textBaseline = 'bottom';
+          const tw = c.measureText(label).width;
+          c.fillStyle = 'rgba(20,28,36,0.75)';
+          c.fillRect(bar.x - tw/2 - 3, barTop - 17, tw + 6, 14);
+          c.fillStyle = '#e8edf2';
+          c.fillText(label, bar.x, barTop - 5);
+        }
+        c.restore();
+      });
+    }
+  };
+
+  chartG = new Chart(ctx, {
+    type: 'bar',
+    plugins: [waterfallLabelPlugin],
+    data: {
+      labels,
+      datasets: [{
+        data: bars,
+        backgroundColor: colors,
+        borderWidth: 0,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const [lo, hi] = ctx.raw;
+              return ' ' + Math.abs(hi - lo).toFixed(0) + ' kWh';
+            }
+          },
+          bodyFont: { family: 'DM Mono', size: 11 },
+          titleFont: { family: 'DM Mono', size: 11 },
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#e8edf2', font: { size: 9, weight: '500' }, maxRotation: 0 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          min: 0,
+          ticks: { color: '#e8edf2', font: { size: 9 }, callback: v => v + ' kWh' },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// ── MAIN RECALC ──────────────────────────────────────────────────
+function recalc() {
+  const n       = +(document.getElementById('nMiners')?.value || 61);
+  const sysEff  = +(document.getElementById('sysEff')?.value  || 88);
+  const scale   = getSolarScale(sysEff);
+  const totalSolar = getSolarKWh();
+
+  const kwh      = miningKWhDay(n, MINER_KW, sysEff);
+  const { spill } = dailySpill(n, MINER_KW, sysEff);
+  let sh = miningHours(n, MINER_KW, sysEff);
+  // Keep autoMinerNote in sync with current slider value
+  const _minerNote = document.getElementById('autoMinerNote');
+  if (_minerNote) _minerNote.textContent = `${n} miners · ${(n * MINER_KW).toFixed(0)} kW · spill ${Math.round(spill)} kWh/day`;
+  const util     = totalSolar > 0 ? ((kwh / totalSolar) * 100).toFixed(1) + '%' : '—';
+  const peakKW   = n * MINER_KW;
+  const totalKW  = peakKW + COOLING_KW;
+
+  // Update KPIs
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('kpiPeakKW',   peakKW.toFixed(0) + ' kW');
+  set('kpiTotalKW',  totalKW.toFixed(0) + ' kW');
+  set('kpiDailyKWh', kwh.toFixed(0) + ' kWh');
+  const solarOnlyHrs = solarHours(sysEff);
+  const shClamped    = Math.min(24, sh);
+  const battExtHrs   = Math.max(0, shClamped - solarOnlyHrs);
+  set('kpiSolarHrs', shClamped >= 23.9 ? '24 h' : shClamped.toFixed(1) + ' h');
+  const solSubEl = document.getElementById('kpiSolarSub');
+  if (solSubEl) solSubEl.textContent = shClamped >= 23.9
+    ? 'Full 24h · solar + battery'
+    : battExtHrs > 0.1
+      ? solarOnlyHrs.toFixed(1) + 'h solar + ' + battExtHrs.toFixed(1) + 'h battery'
+      : 'solar hours only · no battery extension';
+  set('kpiUtil',     util);
+  set('kpiSpill',    spill < 1 ? '0 kWh' : spill.toFixed(0) + ' kWh');
+  const coolSub = document.getElementById('kpiCoolingSub');
+  if (coolSub) coolSub.textContent = `${peakKW.toFixed(0)} miners + ${COOLING_KW.toFixed(1)} cooling`;
+
+  // Fleet kW note
+  const fleetNote = document.getElementById('fleetKWNote');
+  if (fleetNote) fleetNote.textContent = peakKW.toFixed(0) + ' + ' + COOLING_KW.toFixed(1) + ' cooling';
+
+  // Colour spill — green=zero, text=small, gold=moderate, red=large
+  const spillSubEl = document.getElementById('kpiSpillSub');
+  if (spillSubEl) spillSubEl.textContent = spill < 1
+    ? 'Zero — fleet absorbs all solar'
+    : spill < 100 ? `${spill.toFixed(1)} kWh — add ${Math.ceil((spill)/(MINER_KW*8))} miner(s) to absorb`
+    : `${spill.toFixed(0)} kWh — fleet undersized`;
+  const spillEl = document.getElementById('kpiSpill');
+  if (spillEl) spillEl.className = 'kpi-val ' + (spill < 1 ? 'green' : spill < 200 ? '' : 'gold');
+
+  // Battery KPIs
+  const totalBattKWh  = LUNA_UNITS * LUNA_KWH;
+  const usableKWh     = totalBattKWh * LUNA_RT_EFF;
+  const nightHrs      = 12;
+  const maxDischargeKW = LUNA_UNITS * LUNA_MAX_KW;
+  const dischargeKW   = totalBattKWh > 0 ? Math.min(maxDischargeKW, usableKWh / nightHrs) : 0;
+  set('kpiBattKWh', LUNA_UNITS === 0 ? 'None' : totalBattKWh.toLocaleString() + ' kWh');
+  set('kpiBattKW',  LUNA_UNITS === 0 ? '—' : dischargeKW.toFixed(1) + ' kW');
+  const battSubEl = document.getElementById('kpiBattSub');
+  if (battSubEl) battSubEl.textContent = LUNA_UNITS === 0 ? 'No battery selected' : `${LUNA_UNITS} × Luna 2000 · ${(LUNA_UNITS*LUNA_KWH*0.8*LUNA_RT_EFF).toFixed(0)} kWh usable above 20%`;
+
+  // Update battery RT eff note
+  const battRTEl = document.getElementById('battRTEffNote');
+  if (battRTEl) {
+    const rtEff = ((1 - BATT_RT_LOSS) * 100).toFixed(0);
+    battRTEl.textContent = rtEff + '% round-trip efficiency';
+    battRTEl.style.color = BATT_RT_LOSS < 0.05 ? 'var(--green)' : BATT_RT_LOSS < 0.12 ? 'var(--green)' : 'var(--gold)';
+  }
+  updateDoDNote();
+
+  // Update solar plant display
+  updateSolarDisplay();
+
+  // Mining hours — already computed above as sh
+  const miningHrs = sh;
+  const utilNote  = document.getElementById('fullUtilNote');
+  if (utilNote) {
+    utilNote.textContent = miningHrs >= 23.9
+      ? '24.0h / 24h · runs all day'
+      : miningHrs.toFixed(1) + 'h / 24h at 100%';
+    utilNote.style.color = miningHrs >= 23.9 ? 'var(--green)'
+      : miningHrs >= 18 ? 'var(--green)'
+      : miningHrs >= 12 ? 'var(--gold)'
+      : 'var(--muted)';
+  }
+
+  // Charts
+  const sim = simulate24h(n, sysEff);
+  drawLoadProfile(n, sysEff);
+  drawEnergyBalance(n, sysEff);
+  drawSolarProfile(sysEff);
+  drawHourlyConsumption(n, sysEff);
+  drawWaterfall(n, sysEff);
+  drawEnergyFlow(sim);
+  drawSOC(sim);
+  buildLoadTable(sysEff);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('input[type=range]').forEach(el => { if (el) updateRange(el); });
+  // Set cooling mode without triggering full recalc chain
+  ['hydro','3u','air'].forEach(m => {
+    const btn = document.getElementById('cool' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) { btn.style.background = m === 'hydro' ? 'var(--gold)' : 'transparent'; btn.style.color = m === 'hydro' ? '#080b0f' : 'var(--muted)'; }
+  });
+  // Set miner spec without resetting count, then auto-size fleet once on load
+  MINER_KW   = MINERS['s21e'].kw;
+  MINER_HASH = MINERS['s21e'].hash;
+  // Sync inverter display
+  const _invSpec = document.getElementById('invSpecNote');
+  if (_invSpec) _invSpec.textContent = INV_COUNT + ' × 150 kW = ' + SOLAR_AC_INV.toLocaleString() + ' kW AC total';
+  autoSetMiners(); // sets default fleet size on first load only
+  updateSolarDisplay();
+});
+
+// ── TAB SWITCHING ────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(tab === 'dashboard' ? 'dashboard' : 'solar')) b.classList.add('active');
+  });
+  if (tab === 'solar') { buildSolarControls(); buildSolarTable(); }
+}
+
+// ── SOLAR OUTPUT ANALYSIS TAB ────────────────────────────────────
+// Monthly irradiance factors for Sandton (relative to annual average)
+// Source: typical Highveld seasonal variation
+const MONTHLY_FACTORS = {
+  p10: [1.08, 1.05, 0.98, 0.88, 0.82, 0.76, 0.79, 0.86, 0.94, 1.03, 1.08, 1.10],
+  p50: [1.12, 1.09, 1.02, 0.92, 0.85, 0.79, 0.82, 0.90, 0.98, 1.07, 1.12, 1.14],
+  p90: [1.16, 1.13, 1.06, 0.96, 0.88, 0.82, 0.85, 0.93, 1.02, 1.11, 1.16, 1.18],
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Solar day length varies by month (Sandton latitude ~26°S)
+// Sunrise/sunset times approx: Dec ~5:30-18:30, Jun ~6:30-17:30
+const SOLAR_START = [5.5, 5.7, 6.0, 6.2, 6.4, 6.5, 6.4, 6.2, 5.9, 5.6, 5.4, 5.3]; // hour
+const SOLAR_LEN   = [13.0,12.6,12.0,11.4,11.0,11.0,11.2,11.8,12.4,12.9,13.2,13.3]; // hours
+
+let activePct = 'p50';
+
+function buildSolarControls() {
+  var bar = document.getElementById('solar-controls-bar');
+  if (!bar) return;
+  var panelVal = +(document.getElementById('panelCount') ? document.getElementById('panelCount').value : 1700);
+  var dcacVal  = +(document.getElementById('dcacRatio')  ? document.getElementById('dcacRatio').value  : 1.052);
+  var sysVal   = +(document.getElementById('sysEff')     ? document.getElementById('sysEff').value     : 88);
+  var invN     = typeof INV_COUNT !== 'undefined' ? INV_COUNT : 7;
+  var invPills = [1,2,3,4,5,6,7,8,9,10].map(function(n) {
+    var active = n === invN;
+    return '<button onclick="syncFromSolar(\'inv\',' + n + ')" style="font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:3px;cursor:pointer;border:none;transition:all 0.15s;background:' + (active?'var(--gold)':'var(--surface2)') + ';color:' + (active?'#080b0f':'var(--muted)') + '">' + n + '</button>';
+  }).join('');
+  bar.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:var(--border);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:4px">' +
+      '<div style="background:var(--surface);padding:10px 14px">' +
+        '<div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px"><span style="color:#ff3b3b;font-weight:700;margin-right:4px">L</span>Number of Panels</div>' +
+        '<div style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1" id="solarPanelDisplay">' + panelVal.toLocaleString() + '<span style="font-size:9px;color:var(--muted);margin-left:4px">panels</span></div>' +
+        '<input type="range" id="solarPanelCount" min="500" max="3000" value="' + panelVal + '" step="50" oninput="syncFromSolar(\'panels\',+this.value)" style="width:100%;margin-top:4px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:2px"><span>500</span><span>3,000</span></div>' +
+        '<div id="solarPanelNote" style="font-size:9px;color:var(--gold);margin-top:3px">' + (panelVal*0.65).toFixed(0) + ' kWp DC</div>' +
+      '</div>' +
+      '<div style="background:var(--surface);padding:10px 14px">' +
+        '<div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px"><span style="color:#ff3b3b;font-weight:700;margin-right:4px">L</span>DC : AC Ratio</div>' +
+        '<div style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1" id="solarDcacDisplay">' + dcacVal.toFixed(2) + '<span style="font-size:9px;color:var(--muted);margin-left:4px">x oversize</span></div>' +
+        '<input type="range" id="solarDcacRatio" min="1.00" max="1.50" value="' + dcacVal.toFixed(3) + '" step="0.01" oninput="syncFromSolar(\'dcac\',+this.value)" style="width:100%;margin-top:4px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:2px"><span>1.00x</span><span>1.50x</span></div>' +
+        '<div id="solarDcacNote" style="font-size:9px;color:var(--muted);margin-top:3px">AC cap: ' + (SOLAR_KWP_DC / DC_AC_RATIO).toFixed(0) + ' kW</div>' +
+      '</div>' +
+      '<div style="background:var(--surface);padding:10px 14px">' +
+        '<div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px"><span style="color:#ff3b3b;font-weight:700;margin-right:4px">M</span>System Efficiency</div>' +
+        '<div style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1" id="solarSysEffDisplay">' + sysVal + '%</div>' +
+        '<input type="range" id="solarSysEff" min="70" max="99" value="' + sysVal + '" step="1" oninput="syncFromSolar(\'syseff\',+this.value)" style="width:100%;margin-top:4px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:2px"><span>70%</span><span>99%</span></div>' +
+        '<div style="font-size:9px;color:var(--muted);margin-top:3px">Inverter · cable · soiling</div>' +
+      '</div>' +
+      '<div style="background:var(--surface);padding:10px 14px">' +
+        '<div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px"><span style="color:#ff3b3b;font-weight:700;margin-right:4px">N</span>Inverters</div>' +
+        '<div style="font-size:18px;font-family:var(--mono);color:var(--text);line-height:1;margin-top:4px" id="solarInvDisplay">' + invN + '<span style=\'font-size:9px;color:var(--muted);margin-left:4px\'>units (derived)</span></div>' +
+        '<div id="solarInvNote" style="font-size:9px;color:var(--gold);margin-top:6px">' + invN + ' x 150 kW = ' + (invN*150).toLocaleString() + ' kW AC</div>' +
+      '</div>' +
+    '</div>';
+  ['solarPanelCount','solarDcacRatio','solarSysEff'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) updateRange(el);
+  });
+  // Set CSS var so table header sticks below this bar
+  requestAnimationFrame(function() {
+    var b = document.getElementById('solar-controls-bar');
+    if (b) {
+      var h = b.getBoundingClientRect().height + 39; // 39px = tab bar
+      document.documentElement.style.setProperty('--solar-table-top', h + 'px');
+    }
+  });
+}
+
+function syncDcacDisplays(val) {
+  var el = document.getElementById('dcacRatio');
+  if (el) { el.value = val.toFixed(3); updateRange(el); }
+  var disp = document.getElementById('dcacDisplay');
+  if (disp && disp.firstChild) disp.firstChild.textContent = val.toFixed(2) + ' ';
+  var disp2 = document.getElementById('solarDcacDisplay');
+  if (disp2) disp2.innerHTML = val.toFixed(2) + '<span style="font-size:9px;color:var(--muted);margin-left:4px">x oversize</span>';
+  var el2 = document.getElementById('solarDcacRatio');
+  if (el2) { el2.value = val.toFixed(3); updateRange(el2); }
+  var note = document.getElementById('solarDcacNote');
+  if (note) note.textContent = 'AC cap: ' + (SOLAR_KWP_DC / DC_AC_RATIO).toFixed(0) + ' kW';
+}
+
+function syncFromSolar(type, val) {
+  if (type === 'panels') {
+    PANEL_COUNT  = val; SOLAR_KWP_DC = PANEL_COUNT * PANEL_W / 1000;
+    var el = document.getElementById('panelCount');
+    if (el) { el.value = val; updateRange(el); }
+    var d1 = document.getElementById('panelCountDisplay');
+    if (d1 && d1.firstChild) d1.firstChild.textContent = val.toLocaleString() + ' ';
+    var d2 = document.getElementById('solarPanelDisplay');
+    if (d2) d2.innerHTML = val.toLocaleString() + '<span style="font-size:9px;color:var(--muted);margin-left:4px">panels</span>';
+    var n2 = document.getElementById('solarPanelNote');
+    if (n2) n2.textContent = SOLAR_KWP_DC.toFixed(0) + ' kWp DC';
+    var e2 = document.getElementById('solarPanelCount');
+    if (e2) { e2.value = val; updateRange(e2); }
+    DC_AC_RATIO = SOLAR_KWP_DC / SOLAR_AC_INV;
+    syncDcacDisplays(DC_AC_RATIO);
+    updateSolarDisplay(); recalc();
+  } else if (type === 'dcac') {
+    DC_AC_RATIO = val; syncDcacDisplays(val);
+    updateSolarDisplay(); recalc();
+  } else if (type === 'syseff') {
+    var el = document.getElementById('sysEff');
+    if (el) { el.value = val; updateRange(el); }
+    var d1 = document.getElementById('sysEffDisplay');
+    if (d1) d1.textContent = val + '%';
+    var d2 = document.getElementById('solarSysEffDisplay');
+    if (d2) d2.textContent = val + '%';
+    var e2 = document.getElementById('solarSysEff');
+    if (e2) { e2.value = val; updateRange(e2); }
+    recalc();
+  }
+  // Always refresh inverter display after any change
+  updateInvDisplay();
+  buildSolarTable();
+}
+
+function buildSolarTable() {
+  const root = document.getElementById('solar-analysis-root');
+  if (!root) return;
+
+  const sysEff  = +(document.getElementById('sysEff')?.value || 88) / 100;
+  const acLimit = SOLAR_KWP_DC / DC_AC_RATIO;
+  const peakKW  = SOLAR_KWP_DC * sysEff;
+  const factors = MONTHLY_FACTORS[activePct];
+
+  // Build hourly output for each month — array[24][12]
+  const hourly = [];
+  for (let hr = 0; hr < 24; hr++) {
+    const row = [];
+    for (let m = 0; m < 12; m++) {
+      const start   = SOLAR_START[m];
+      const len     = SOLAR_LEN[m];
+      const solarHr = hr - start;
+      if (solarHr < 0 || solarHr > len) { row.push(0); continue; }
+      const raw = peakKW * Math.sin(Math.PI * solarHr / len) * factors[m];
+      row.push(Math.min(raw, acLimit));
+    }
+    hourly.push(row);
+  }
+
+  // Header row
+  let thCells = '<th style="position:sticky;left:0;z-index:2;background:var(--surface)">Hour</th>';
+  MONTHS.forEach(function(m) { thCells += '<th>' + m + '</th>'; });
+
+  // Data rows
+  let bodyRows = '';
+  for (let hr = 0; hr < 24; hr++) {
+    const row = hourly[hr];
+    const hh  = hr.toString().padStart(2, '0');
+    let tds = '<td style="position:sticky;left:0;background:var(--bg);font-weight:500">' + hh + ':00</td>';
+    row.forEach(function(val) {
+      if (val < 1) {
+        tds += '<td style="color:rgba(255,255,255,0.1)">—</td>';
+      } else {
+        let color = 'var(--muted)';
+        if      (val > peakKW * 0.85) color = 'var(--gold)';
+        else if (val > peakKW * 0.50) color = 'var(--green)';
+        else if (val > peakKW * 0.10) color = '#aac4d8';
+        tds += '<td style="color:' + color + '">' + val.toFixed(0) + '</td>';
+      }
+    });
+    bodyRows += '<tr>' + tds + '</tr>';
+  }
+
+  // Totals row
+  let totalTds = '<td style="position:sticky;left:0;background:var(--bg);color:var(--gold);font-weight:500">kWh/day</td>';
+  for (let m = 0; m < 12; m++) {
+    const daily = hourly.reduce(function(sum, row) { return sum + row[m]; }, 0);
+    totalTds += '<td style="color:var(--gold);font-weight:500">' + daily.toFixed(0) + '</td>';
+  }
+
+  // Compute annual MWh for each percentile to show in dropdown
+  var DAYS_PER_MONTH_p = [31,28,31,30,31,30,31,31,30,31,30,31];
+  function annualMWh(pct) {
+    var factors = MONTHLY_FACTORS[pct];
+    var total = 0;
+    for (var m = 0; m < 12; m++) {
+      var dailyKWh = 0;
+      for (var hr = 0; hr < 24; hr++) {
+        var solarHr = hr - SOLAR_START[m];
+        if (solarHr >= 0 && solarHr <= SOLAR_LEN[m]) {
+          var raw = peakKW * Math.sin(Math.PI * solarHr / SOLAR_LEN[m]) * factors[m];
+          dailyKWh += Math.min(raw, acLimit);
+        }
+      }
+      total += dailyKWh * DAYS_PER_MONTH_p[m];
+    }
+    return (total / 1000).toFixed(0);
+  }
+  var pctOptions = [
+    {v:'p10', label:'P10 — Low year · ' + annualMWh('p10') + ' MWh/yr'},
+    {v:'p50', label:'P50 — Median year · ' + annualMWh('p50') + ' MWh/yr'},
+    {v:'p90', label:'P90 — High year · ' + annualMWh('p90') + ' MWh/yr'},
+  ].map(function(o) {
+    return '<option value="' + o.v + '"' + (activePct === o.v ? ' selected' : '') + '>' + o.label + '</option>';
+  }).join('');
+
+  root.innerHTML =
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">' +
+      '<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8">Solar Output Analysis</div>' +
+      '<div style="font-family:var(--mono);font-size:9px;color:var(--muted)">' + SOLAR_KWP_DC.toFixed(0) + ' kWp · ' + acLimit.toFixed(0) + ' kW AC limit · ' + (sysEff*100).toFixed(0) + '% efficiency</div>' +
+      '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Percentile</span>' +
+        '<select id="pctSelect" onchange="activePct=this.value;buildSolarTable()" style="font-family:var(--mono);font-size:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px 8px">' +
+          pctOptions +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+    '<div style="overflow:auto;max-height:calc(100vh - 160px)">' +
+      '<table class="solar-table">' +
+        '<thead><tr>' + thCells + '</tr></thead>' +
+        '<tbody>' + bodyRows + '<tr style="border-top:1px solid var(--border)">' + totalTds + '</tr></tbody>' +
+      '</table>' +
+    '</div>';
+  drawSeasonalCurves();
+}
+
+function drawSeasonalCurves() {
+  var root = document.getElementById('solar-seasonal-root');
+  if (!root) return;
+
+  var sysEff  = +(document.getElementById('sysEff') ? document.getElementById('sysEff').value : 88) / 100;
+  var acLimit = SOLAR_KWP_DC / DC_AC_RATIO;
+  var peakKW  = SOLAR_KWP_DC * sysEff;
+  var factors = MONTHLY_FACTORS[activePct];
+
+  var labels = [];
+  for (var hr = 0; hr < 24; hr++) labels.push(hr.toString().padStart(2,'0') + ':00');
+
+  var MONTH_COLORS = [
+    'rgba(240,160,32,0.9)','rgba(240,140,40,0.85)','rgba(120,200,80,0.85)',
+    'rgba(80,180,120,0.80)','rgba(96,165,250,0.80)','rgba(60,130,220,0.90)',
+    'rgba(60,130,220,0.90)','rgba(96,165,250,0.80)','rgba(80,180,120,0.80)',
+    'rgba(120,200,80,0.85)','rgba(200,160,40,0.85)','rgba(240,160,32,0.9)',
+  ];
+
+  // Add AC limit reference line
+  var acLimitDataset = {
+    label: 'AC inverter limit (' + acLimit.toFixed(0) + ' kW)',
+    data: new Array(24).fill(parseFloat(acLimit.toFixed(1))),
+    borderColor: 'rgba(255,100,100,0.7)',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderDash: [4, 3],
+    pointRadius: 0,
+    tension: 0,
+    order: -1,
+  };
+
+  var datasets = MONTHS.map(function(month, m) {
+    var data = [];
+    for (var hr = 0; hr < 24; hr++) {
+      var start = SOLAR_START[m], len = SOLAR_LEN[m], solarHr = hr - start, val = 0;
+      if (solarHr >= 0 && solarHr <= len)
+        val = Math.min(peakKW * Math.sin(Math.PI * solarHr / len) * factors[m], acLimit);
+      data.push(parseFloat(val.toFixed(1)));
+    }
+    return {
+      label: month, data: data,
+      borderColor: MONTH_COLORS[m], backgroundColor: 'transparent',
+      borderWidth: (m === 5 || m === 6) ? 2.5 : 1.5,
+      pointRadius: 0, tension: 0.4,
+    };
+  });
+
+  // Clipping loss datasets — raw DC minus AC output (what gets lost at the inverter)
+  var clippingDatasets = MONTHS.map(function(month, m) {
+    var data = [];
+    for (var hr = 0; hr < 24; hr++) {
+      var start = SOLAR_START[m], len = SOLAR_LEN[m], solarHr = hr - start, clip = 0;
+      if (solarHr >= 0 && solarHr <= len) {
+        var raw = peakKW * Math.sin(Math.PI * solarHr / len) * factors[m];
+        clip = Math.max(0, raw - acLimit);
+      }
+      data.push(parseFloat(clip.toFixed(1)));
+    }
+    return {
+      label: month, data: data,
+      borderColor: MONTH_COLORS[m], backgroundColor: 'transparent',
+      borderWidth: (m === 5 || m === 6) ? 2.5 : 1.5,
+      pointRadius: 0, tension: 0.4,
+    };
+  });
+  var maxClip = Math.max.apply(null, clippingDatasets.map(function(ds) {
+    return Math.max.apply(null, ds.data);
+  }));
+
+  // Compute monthly daily kWh totals and cumulative annual kWh
+  var monthlyDailyKWh = MONTHS.map(function(month, m) {
+    var total = 0;
+    for (var hr = 0; hr < 24; hr++) {
+      var start = SOLAR_START[m], len = SOLAR_LEN[m], solarHr = hr - start, val = 0;
+      if (solarHr >= 0 && solarHr <= len)
+        val = Math.min(peakKW * Math.sin(Math.PI * solarHr / len) * factors[m], acLimit);
+      total += val;
+    }
+    return parseFloat(total.toFixed(0));
+  });
+  // Days per month
+  var DAYS_PER_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+  var cumMWh = [], running = 0;
+  monthlyDailyKWh.forEach(function(daily, m) {
+    running += daily * DAYS_PER_MONTH[m];
+    cumMWh.push(parseFloat((running/1000).toFixed(1)));
+  });
+  var totalAnnualMWh = running / 1000;
+
+  root.innerHTML =
+    '<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:8px">' +
+      '<span style="color:#ff3b3b;font-weight:700;margin-right:6px">O</span>Seasonal AC Output Curves &middot; All 12 Months' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:12px">' +
+      'Gold = summer (Dec&ndash;Feb) &middot; Blue = winter (Jun&ndash;Jul) &middot; ' + activePct.toUpperCase() + ' percentile' +
+    '</div>' +
+    '<div style="position:relative;height:280px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:16px">' +
+      '<canvas id="seasonalCurvesCanvas"></canvas>' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:8px;margin-top:16px">' +
+      '<span style="color:#ff3b3b;font-weight:700;margin-right:6px">P</span>Clipping Losses &middot; All 12 Months' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:12px">' +
+      'kW lost at inverter limit per hour &middot; zero when DC output is below AC capacity &middot; ' + activePct.toUpperCase() + ' percentile' +
+    '</div>' +
+    '<div style="position:relative;height:240px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:16px">' +
+      '<canvas id="seasonalClipCanvas"></canvas>' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:8px">' +
+      '<span style="color:#ff3b3b;font-weight:700;margin-right:6px">Q</span>Monthly Daily kWh &middot; Cumulative Annual kWh' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:12px">' +
+      'Bars = average daily kWh per month &middot; Purple line = cumulative annual MWh &middot; ' +
+      'Annual total: ' + totalAnnualMWh.toFixed(1) + ' MWh/year' +
+    '</div>' +
+    '<div style="position:relative;height:220px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px">' +
+      '<canvas id="seasonalCumCanvas"></canvas>' +
+    '</div>';
+
+  // Chart O — seasonal hourly curves
+  var ctx2 = document.getElementById('seasonalCurvesCanvas').getContext('2d');
+  new Chart(ctx2, {
+    type: 'line',
+    data: { labels: labels, datasets: datasets.concat([acLimitDataset]) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 12, padding: 10 } },
+        tooltip: {
+          bodyFont: { family: 'DM Mono', size: 10 },
+          callbacks: { label: function(c) { return c.dataset.label + ': ' + c.raw.toFixed(0) + ' kW'; } }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 13, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: {
+          min: 0,
+          max: Math.ceil(peakKW * 1.15 / 100) * 100, // fixed to unclipped peak so flattening is visible
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: function(v) { return v + ' kW'; } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+
+  // Chart P — clipping loss curves
+  var ctx4 = document.getElementById('seasonalClipCanvas').getContext('2d');
+  new Chart(ctx4, {
+    type: 'line',
+    data: { labels: labels, datasets: clippingDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 12, padding: 10 } },
+        tooltip: {
+          bodyFont: { family: 'DM Mono', size: 10 },
+          callbacks: { label: function(c) { return c.dataset.label + ': ' + c.raw.toFixed(0) + ' kW clipped'; } }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#c8dce8', font: { size: 8 }, maxTicksLimit: 13, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: {
+          min: 0,
+          max: maxClip < 1 ? 10 : Math.ceil(maxClip / 50) * 50,
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: function(v) { return v + ' kW'; } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+
+  // Chart Q — monthly daily kWh bars + cumulative annual purple line
+  var ctx3 = document.getElementById('seasonalCumCanvas').getContext('2d');
+  var endLabelPluginP = {
+    id: 'endLabelP',
+    afterDatasetsDraw: function(chart) {
+      var ds = chart.data.datasets[1]; // cumulative line
+      var meta = chart.getDatasetMeta(1);
+      var last = meta.data[meta.data.length - 1];
+      if (!last) return;
+      var val = ds.data[ds.data.length - 1];
+      var c = chart.ctx;
+      c.save();
+      c.font = '500 10px DM Mono, monospace';
+      c.fillStyle = 'rgba(167,139,250,1)';
+      c.textAlign = 'right';
+      c.textBaseline = 'bottom';
+      c.fillText(val.toFixed(1) + ' MWh/yr', last.x - 6, last.y - 4);
+      c.restore();
+    }
+  };
+  new Chart(ctx3, {
+    type: 'bar',
+    plugins: [endLabelPluginP],
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Daily kWh (avg)',
+          data: monthlyDailyKWh,
+          backgroundColor: 'rgba(0,212,170,0.35)',
+          borderColor: 'rgba(0,212,170,0.7)',
+          borderWidth: 1,
+          yAxisID: 'y',
+        },
+        {
+          type: 'line',
+          label: 'Cumulative annual MWh',
+          data: cumMWh,
+          borderColor: 'rgba(167,139,250,0.9)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [6,3],
+          pointRadius: cumMWh.map(function(_, i) { return i === cumMWh.length-1 ? 6 : 3; }),
+          pointBackgroundColor: 'rgba(167,139,250,0.9)',
+          tension: 0.3,
+          yAxisID: 'y2',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e8edf2', font: { family: 'DM Mono', size: 9 }, boxWidth: 12, padding: 10 } },
+        tooltip: {
+          bodyFont: { family: 'DM Mono', size: 10 },
+          callbacks: {
+            label: function(c) {
+              return c.dataset.yAxisID === 'y2'
+                ? c.dataset.label + ': ' + c.raw.toFixed(1) + ' MWh'
+                : c.dataset.label + ': ' + c.raw.toFixed(0) + ' kWh';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#c8dce8', font: { size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: {
+          position: 'left', min: 0,
+          ticks: { color: '#c8dce8', font: { size: 9 }, callback: function(v) { return v + ' kWh'; } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y2: {
+          position: 'right', min: 0,
+          ticks: { color: 'rgba(167,139,250,0.9)', font: { size: 9 }, callback: function(v) { return v.toFixed(0) + ' MWh'; } },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+</script>
+</body>
+</html>
