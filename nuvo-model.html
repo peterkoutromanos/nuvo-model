@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nuvo Model · Solar Load Analysis</title>
+<title>Fanero Ventures Solar Plant</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -212,8 +212,8 @@ select {
 
 <header>
   <div style="display:flex;align-items:center">
-    <div class="logo">Nuvo <span>Model</span></div>
-    <div class="logo-sub">Solar Load Analysis</div>
+    <div class="logo">Fanero <span>Ventures</span></div>
+    <div class="logo-sub">Solar Plant</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <!-- Solar model toggle -->
@@ -230,6 +230,7 @@ select {
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab-btn" onclick="switchTab('solar')">Solar Output Analysis</button>
+  <button class="tab-btn" onclick="switchTab('costs')">Bill of Costs</button>
 </div>
 <div class="page">
 <div id="tab-dashboard" class="tab-panel active">
@@ -256,7 +257,7 @@ select {
       <div id="nMinersDisplay" style="font-size:18px;font-family:var(--mono);font-weight:400;color:var(--text);line-height:1;margin:2px 0 1px">
         61<span style="font-size:11px;color:var(--muted);margin-left:4px">units</span>
       </div>
-      <input type="range" id="nMiners" min="1" max="200" value="61" step="1"
+      <input type="range" id="nMiners" min="1" max="200" value="60" step="1"
         oninput="document.getElementById('nMinersDisplay').firstChild.textContent=this.value+' ';updateRange(this);recalc()"
         style="width:100%;margin-top:2px">
       <div class="range-labels"><span>1</span><span>100</span><span>200</span></div>
@@ -568,6 +569,126 @@ select {
     <div id="solar-seasonal-root" style="margin-top:24px"></div>
   </div>
 </div>
+
+<div id="tab-costs" class="tab-panel">
+
+  <!-- STICKY CONTROLS BAR -->
+  <div id="costsControls" style="position:sticky;top:50px;z-index:50;background:var(--bg);border-top:1px solid var(--border);border-bottom:2px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,0.4);padding:10px 24px;margin:0 -24px;display:grid;grid-template-columns:repeat(6,1fr);gap:12px;">
+    <!-- Panels -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">Solar Panels</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cPanelDisplay">1,700</span><span style="font-size:9px;color:var(--muted);margin-left:4px">panels</span></div>
+      <input type="range" id="cPanelSlider" min="500" max="3000" value="1700" step="50"
+        oninput="var v=+this.value;PANEL_COUNT=v;SOLAR_KWP_DC=v*PANEL_W/1000;document.getElementById('cPanelDisplay').textContent=v.toLocaleString();document.getElementById('cPanelKwp').textContent=(v*0.65).toFixed(0)+' kWp DC';var m=document.getElementById('panelCount');if(m){m.value=v;updateRange(m);}document.getElementById('panelCountDisplay').firstChild.textContent=v.toLocaleString()+' ';updateSolarDisplay();recalc();buildCostsTable();"
+        style="width:100%;margin-top:4px">
+      <div style="font-size:8px;color:var(--gold);margin-top:2px" id="cPanelKwp">1,105 kWp DC</div>
+    </div>
+    <!-- DC:AC -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">DC : AC Ratio</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cDcacDisplay">1.05</span><span style="font-size:9px;color:var(--muted);margin-left:4px">×</span></div>
+      <input type="range" id="cDcacSlider" min="1.00" max="1.50" value="1.052" step="0.01"
+        oninput="var v=+this.value;DC_AC_RATIO=v;document.getElementById('cDcacDisplay').textContent=v.toFixed(2);var m=document.getElementById('dcacRatio');if(m){m.value=v;updateRange(m);}document.getElementById('dcacDisplay').firstChild.textContent=v.toFixed(2)+' ';updateSolarDisplay();recalc();buildCostsTable();"
+        style="width:100%;margin-top:4px">
+      <div style="font-size:8px;color:var(--muted);margin-top:2px" id="cInvNote">7 × 150 kW = 1,050 kW AC</div>
+    </div>
+    <!-- Inverters derived -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">Inverters</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cInvDisplay">7</span><span style="font-size:9px;color:var(--muted);margin-left:4px">units</span></div>
+      <div style="font-size:8px;color:var(--muted);margin-top:6px">Derived: panels ÷ (DC:AC × 150kW)</div>
+      <div style="font-size:8px;color:var(--gold);margin-top:2px" id="cInvCost">R 1,050,000</div>
+    </div>
+    <!-- Battery -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">Battery Units</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cBattDisplay">1</span><span style="font-size:9px;color:var(--muted);margin-left:4px">× 241 kWh</span></div>
+      <div style="display:flex;gap:3px;margin-top:5px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px;width:fit-content">
+        <button onclick="syncBatt(0)" id="cBatt0" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">None</button>
+        <button onclick="syncBatt(1)" id="cBatt1" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:var(--gold);color:#080b0f">1</button>
+        <button onclick="syncBatt(2)" id="cBatt2" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">2</button>
+        <button onclick="syncBatt(3)" id="cBatt3" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">3</button>
+        <button onclick="syncBatt(4)" id="cBatt4" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">4</button>
+        <button onclick="syncBatt(5)" id="cBatt5" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">5</button>
+        <button onclick="syncBatt(6)" id="cBatt6" style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;border:none;background:transparent;color:var(--muted)">6</button>
+      </div>
+      <div style="font-size:8px;color:var(--green);margin-top:3px" id="cBattKwh">200 kWh installed</div>
+    </div>
+    <!-- Miners -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">Miners</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cMinerDisplay">60</span><span style="font-size:9px;color:var(--muted);margin-left:4px">units</span></div>
+      <input type="range" id="cMinerSlider" min="1" max="200" value="60" step="1"
+        oninput="var v=+this.value;document.getElementById('cMinerDisplay').textContent=v;var m=document.getElementById('nMiners');if(m){m.value=v;updateRange(m);}document.getElementById('nMinersDisplay').firstChild.textContent=v+' ';recalc();buildCostsTable();"
+        style="width:100%;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:1px"><span>1</span><span>200</span></div>
+      <div style="font-size:8px;color:var(--gold);margin-top:2px" id="cMinerCost">R 2,100,000</div>
+    </div>
+    <!-- ZAR/USD Rate -->
+    <div>
+      <div style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:4px">ZAR / USD Rate</div>
+      <div style="font-size:16px;font-family:var(--mono);color:var(--text);line-height:1"><span id="cRateDisplay">16.50</span><span style="font-size:9px;color:var(--muted);margin-left:4px">ZAR</span></div>
+      <input type="range" id="cRateSlider" min="12" max="25" value="16.50" step="0.10"
+        oninput="var v=(+this.value).toFixed(2);document.getElementById('cRateDisplay').textContent=v;document.getElementById('cRateSub').textContent=v;var m=document.getElementById('usdZarRate');if(m){m.value=v;buildCostsTable();}"
+        style="width:100%;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:1px"><span>R12</span><span>R25</span></div>
+      <div style="font-size:8px;color:var(--muted);margin-top:2px">$1 USD = R<span id="cRateSub">16.50</span></div>
+    </div>
+  </div>
+  <!-- END STICKY BAR -->
+
+  <div style="padding:20px 0 16px;max-width:900px">
+
+    <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#c8dce8;margin-bottom:16px">
+      <span style="color:#ff3b3b;font-weight:700;margin-right:6px">R</span>Bill of Costs · Solar Bitcoin Mining Installation
+    </div>
+
+    <!-- Cost table -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:20px">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px">
+        <thead>
+          <tr style="background:var(--surface2);border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;width:30%">Item</th>
+            <th style="text-align:right;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8">Qty</th>
+            <th style="text-align:right;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8">Unit</th>
+            <th style="text-align:right;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8">Unit Cost (R)</th>
+            <th style="text-align:right;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8">Total (R)</th>
+            <th style="text-align:right;padding:10px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8">Total (USD)</th>
+          </tr>
+        </thead>
+        <tbody id="costsTableBody"></tbody>
+        <tfoot id="costsTableFoot"></tfoot>
+      </table>
+    </div>
+
+    <!-- Exchange rate + notes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+        <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:8px">Exchange Rate</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:9px;color:var(--muted)">USD/ZAR</span>
+          <input type="number" id="usdZarRate" value="16.50" min="10" max="30" step="0.1"
+            oninput="buildCostsTable()"
+            style="font-family:var(--mono);font-size:18px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);width:80px;text-align:right">
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px">Used to convert all totals to USD</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+        <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#c8dce8;margin-bottom:8px">Summary</div>
+        <div id="costsSummary" style="font-size:11px;font-family:var(--mono);color:var(--text);line-height:1.8"></div>
+      </div>
+    </div>
+
+    <!-- Editable unit cost notes -->
+    <div style="font-size:9px;color:var(--muted);line-height:1.8">
+      * All unit costs are editable — click any unit cost cell to adjust.<br>
+      * BOS = Balance of System: mounting, cabling, earthing, switchgear, civil works, installation labour.<br>
+      * Miner costs in USD converted at the rate above.
+    </div>
+
+  </div>
+</div>
+
 
 </div><!-- .page -->
 
@@ -1094,6 +1215,75 @@ function setLunaUnits(n) {
     if (headroomNote) headroomNote.textContent = `⚡ Fleet reduced by ~${n * 100 / DC_AC_RATIO > 0 ? Math.round(n * LUNA_MAX_KW / MINER_KW) : 0} miners to create ${totalKW} kW charging headroom`;
   }
   recalc();
+  syncCostsControls();
+}
+
+// ── COSTS TAB SYNC ───────────────────────────────────────────────
+function syncBatt(n) {
+  setLunaUnits(n);
+  for (let i = 0; i <= 6; i++) {
+    const b = document.getElementById('cBatt' + i);
+    if (!b) continue;
+    b.style.background = i === n ? 'var(--gold)' : 'transparent';
+    b.style.color      = i === n ? '#080b0f'    : 'var(--muted)';
+  }
+  const d = document.getElementById('cBattDisplay');
+  if (d) d.textContent = n === 0 ? '0' : String(n);
+  const k = document.getElementById('cBattKwh');
+  if (k) k.textContent = n === 0 ? 'No battery' : (n * 241).toLocaleString() + ' kWh installed';
+  buildCostsTable();
+}
+
+function syncCostsControls() {
+  var ps = document.getElementById('cPanelSlider');
+  if (ps) { ps.value = PANEL_COUNT; updateRange(ps); }
+  var pd = document.getElementById('cPanelDisplay');
+  if (pd) pd.textContent = PANEL_COUNT.toLocaleString();
+  var pk = document.getElementById('cPanelKwp');
+  if (pk) pk.textContent = (PANEL_COUNT * 0.65).toFixed(0) + ' kWp DC';
+
+  var ds = document.getElementById('cDcacSlider');
+  if (ds) { ds.value = DC_AC_RATIO; updateRange(ds); }
+  var dd = document.getElementById('cDcacDisplay');
+  if (dd) dd.textContent = DC_AC_RATIO.toFixed(2);
+
+  var inv = typeof INV_COUNT !== 'undefined' ? INV_COUNT : 7;
+  var id2 = document.getElementById('cInvDisplay');
+  if (id2) id2.textContent = inv;
+  var ic  = document.getElementById('cInvCost');
+  if (ic)  ic.textContent  = 'R ' + (inv * (UNIT_COSTS ? UNIT_COSTS.inverters : 150000)).toLocaleString();
+  var inn = document.getElementById('cInvNote');
+  if (inn) inn.textContent = inv + ' × 150 kW = ' + (inv * 150).toLocaleString() + ' kW AC';
+
+  var bn = typeof LUNA_UNITS !== 'undefined' ? LUNA_UNITS : 1;
+  var bd = document.getElementById('cBattDisplay');
+  if (bd) bd.textContent = bn === 0 ? '0' : String(bn);
+  var bk = document.getElementById('cBattKwh');
+  if (bk) bk.textContent = bn === 0 ? 'No battery' : (bn * 241).toLocaleString() + ' kWh installed';
+  for (let i = 0; i <= 6; i++) {
+    const b = document.getElementById('cBatt' + i);
+    if (!b) continue;
+    b.style.background = i === bn ? 'var(--gold)' : 'transparent';
+    b.style.color      = i === bn ? '#080b0f'     : 'var(--muted)';
+  }
+
+  // Miners
+  var nm = +(document.getElementById('nMiners')?.value || 60);
+  var ms = document.getElementById('cMinerSlider');
+  if (ms) { ms.value = nm; updateRange(ms); }
+  var md = document.getElementById('cMinerDisplay');
+  if (md) md.textContent = nm;
+  var mc = document.getElementById('cMinerCost');
+  if (mc) mc.textContent = 'R ' + (nm * (UNIT_COSTS ? UNIT_COSTS.minersZAR : 35000)).toLocaleString();
+
+  // ZAR/USD rate
+  var rv = +(document.getElementById('usdZarRate')?.value || 16.5);
+  var rs = document.getElementById('cRateSlider');
+  if (rs) { rs.value = rv; updateRange(rs); }
+  var rd = document.getElementById('cRateDisplay');
+  if (rd) rd.textContent = rv.toFixed(2);
+  var rsub = document.getElementById('cRateSub');
+  if (rsub) rsub.textContent = rv.toFixed(2);
 }
 
 // ── 24H SIMULATION ───────────────────────────────────────────────
@@ -1992,7 +2182,7 @@ function drawWaterfall(n, sysEff) {
 
 // ── MAIN RECALC ──────────────────────────────────────────────────
 function recalc() {
-  const n       = +(document.getElementById('nMiners')?.value || 61);
+  const n       = +(document.getElementById('nMiners')?.value || 60);
   const sysEff  = +(document.getElementById('sysEff')?.value  || 88);
   const scale   = getSolarScale(sysEff);
   const totalSolar = getSolarKWh();
@@ -2086,6 +2276,7 @@ function recalc() {
   drawEnergyFlow(sim);
   drawSOC(sim);
   buildLoadTable(sysEff);
+  syncCostsControls();
 }
 
 // ── INIT ─────────────────────────────────────────────────────────
@@ -2102,8 +2293,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Sync inverter display
   const _invSpec = document.getElementById('invSpecNote');
   if (_invSpec) _invSpec.textContent = INV_COUNT + ' × 150 kW = ' + SOLAR_AC_INV.toLocaleString() + ' kW AC total';
-  autoSetMiners(); // sets default fleet size on first load only
+  // Fixed fleet size — 60 miners
+  (function() {
+    const el = document.getElementById('nMiners');
+    if (el) { el.value = 60; updateRange(el); document.getElementById('nMinersDisplay').firstChild.textContent = '60 '; }
+  })();
   updateSolarDisplay();
+  recalc();
 });
 
 // ── TAB SWITCHING ────────────────────────────────────────────────
@@ -2112,9 +2308,13 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => {
-    if (b.textContent.toLowerCase().includes(tab === 'dashboard' ? 'dashboard' : 'solar')) b.classList.add('active');
+    var txt = b.textContent.toLowerCase();
+    if (tab === 'dashboard' && txt.includes('dashboard')) b.classList.add('active');
+    else if (tab === 'solar' && txt.includes('solar')) b.classList.add('active');
+    else if (tab === 'costs' && txt.includes('bill')) b.classList.add('active');
   });
   if (tab === 'solar') { buildSolarControls(); buildSolarTable(); }
+  if (tab === 'costs') buildCostsTable();
 }
 
 // ── SOLAR OUTPUT ANALYSIS TAB ────────────────────────────────────
@@ -2592,6 +2792,163 @@ function drawSeasonalCurves() {
     }
   });
 }
+
+// ── BILL OF COSTS ────────────────────────────────────────────────
+var UNIT_COSTS = {
+  panels:    1852.50, // R per panel — Aiko Stellar 1N+ 650W (Herholdts CEN-Q422199)
+  inverters: 99900,   // R per inverter — Huawei SUN2000-150KTL (Current Automation SOQ333105)
+  batteries: 893026,   // R per unit — Huawei LUNA2000-241-2S1 (241 kWh per unit, Current Automation SOQ333105)
+  minersZAR: 35000,   // R per miner — S21e Hyd 332 TH/s
+  minersUSD: 0,       // not used — priced in ZAR
+  bos:       0,       // fixed from Herholdts quote
+  bosFixed:  2654599, // R actual BOS (Herholdts CEN-Q422199 — cabling · mounting · switchgear · ATS)
+  bosPct:    0,
+};
+
+function buildCostsTable() {
+  var body = document.getElementById('costsTableBody');
+  var foot = document.getElementById('costsTableFoot');
+  var summary = document.getElementById('costsSummary');
+  if (!body) return;
+
+  var rate   = +(document.getElementById('usdZarRate')?.value || 16.5);
+  var nPanel = typeof PANEL_COUNT !== 'undefined' ? PANEL_COUNT : 1700;
+  var nInv   = typeof INV_COUNT   !== 'undefined' ? INV_COUNT   : 7;
+  var nBatt  = typeof LUNA_UNITS  !== 'undefined' ? LUNA_UNITS  : 1;
+  var nMiner = +(document.getElementById('nMiners')?.value || 60);
+  var minerModel = document.getElementById('minerSelect')?.selectedOptions[0]?.text || 'S21e Hyd 332';
+
+  var panelTotal  = nPanel * UNIT_COSTS.panels;
+  var invTotal    = nInv   * UNIT_COSTS.inverters;
+  var battTotal   = nBatt  * UNIT_COSTS.batteries;
+  var minerTotal  = nMiner * UNIT_COSTS.minersZAR;
+  var bosTotal    = UNIT_COSTS.bosFixed > 0 ? UNIT_COSTS.bosFixed : (panelTotal + invTotal) * (UNIT_COSTS.bosPct || 20) / 100;
+  var lianliUSD   = 41873 + 4100; // PI LL-20260414-1 + shipping
+  var lianliZAR   = lianliUSD * rate + 31195; // + ZAR transit fee
+
+  // Group subtotals
+  var solarSubtotal  = panelTotal + invTotal + battTotal + bosTotal;  // Solar Plant
+  var minerSubtotal  = minerTotal;                                     // Mining Fleet (units only)
+  var infraSubtotal  = lianliZAR;                                      // Mining Infrastructure
+
+  var grandTotal  = solarSubtotal + minerSubtotal + infraSubtotal;
+  var grandUSD    = grandTotal / rate;
+
+  function fmtR(n)   { return 'R ' + Math.round(n).toLocaleString(); }
+  function fmtUSD(n) { return '$ ' + Math.round(n).toLocaleString(); }
+  function fmtN(n)   { return n.toLocaleString(); }
+
+  // ── Row groups ────────────────────────────────────────────────
+  var groups = [
+    {
+      label: 'Solar Plant',
+      color: '#f0a020',
+      subtotal: solarSubtotal,
+      rows: [
+        { cat: 'Solar Panels', desc: 'Aiko Stellar 1N+ 650W · ' + nPanel.toLocaleString() + ' panels · ' + (nPanel*0.65).toFixed(0) + ' kWp DC · Herholdts CEN-Q422199', qty: nPanel, unit: 'panel', unitCost: UNIT_COSTS.panels, total: panelTotal, key: 'panels' },
+        { cat: 'Inverters',    desc: 'Huawei SUN2000-150KTL · ' + nInv + ' units · ' + (nInv*150).toLocaleString() + ' kW AC · Current Automation SOQ333105', qty: nInv, unit: 'unit', unitCost: UNIT_COSTS.inverters, total: invTotal, key: 'inverters' },
+        { cat: 'Battery',      desc: 'Huawei LUNA2000-241-2S1 · ' + nBatt + ' units · ' + (nBatt*241).toLocaleString() + ' kWh · LFP · Current Automation SOQ333105', qty: nBatt, unit: 'unit', unitCost: UNIT_COSTS.batteries, total: battTotal, key: 'batteries' },
+        { cat: 'BOS',          desc: 'RV-K cabling · PV cable · MC4 · fuses · MCCBs · SPD · Socomec ATS · Lumax mounting · Herholdts CEN-Q422199', qty: 1, unit: 'lot', unitCost: bosTotal, total: bosTotal, key: 'bos', noEdit: true },
+      ]
+    },
+    {
+      label: 'Mining Fleet',
+      color: '#00d4aa',
+      subtotal: minerSubtotal,
+      rows: [
+        { cat: 'Miners', desc: minerModel + ' · ' + nMiner + ' units · R35,000/unit', qty: nMiner, unit: 'unit', unitCost: UNIT_COSTS.minersZAR, total: minerTotal, key: 'minersZAR' },
+      ]
+    },
+    {
+      label: 'Mining Infrastructure',
+      color: '#60a5fa',
+      subtotal: infraSubtotal,
+      rows: [
+        { cat: 'Racks',      desc: 'Lianli L-L28RK 28-slot Antminer rack 100×90×225cm · 380V · PI LL-20260414-1', qty: 3, unit: 'unit', unitCost: 1750*rate,  total: 3*1750*rate,  noEdit: true, usdUnit: 1750,  usdTotal: 5250  },
+        { cat: 'CDU',        desc: 'Lianli L-L1000CDU 1,000 kW Coolant Distribution Unit · dual pump · 380V',            qty: 1, unit: 'unit', unitCost: 11500*rate, total: 11500*rate,   noEdit: true, usdUnit: 11500, usdTotal: 11500 },
+        { cat: 'Dry Cooler', desc: 'Lianli L-L1000DC 1,000 kW dry cooler 924×225×223cm · 16×1.8 kW fans · 380V', qty: 1, unit: 'unit', unitCost: 24500*rate, total: 24500*rate,   noEdit: true, usdUnit: 24500, usdTotal: 24500 },
+        { cat: 'Packaging',  desc: 'Lianli wooden crating fee — racks + CDU',                                               qty: 1, unit: 'lot',  unitCost: 623*rate,   total: 623*rate,     noEdit: true, usdUnit: 623,   usdTotal: 623   },
+        { cat: 'Shipping',   desc: 'Lianli international freight — China to South Africa',                                  qty: 1, unit: 'lot',  unitCost: 4100*rate,  total: 4100*rate,    noEdit: true, usdUnit: 4100,  usdTotal: 4100  },
+        { cat: 'Transit Fee',desc: 'SA import transit / customs clearance fee',                                                  qty: 1, unit: 'lot',  unitCost: 31195,      total: 31195,        noEdit: true, usdUnit: null,  usdTotal: null  },
+      ]
+    },
+  ];
+
+  function renderRow(r, i) {
+    var bg = i % 2 === 0 ? 'background:var(--bg)' : 'background:var(--surface)';
+    var usdCell = r.usdTotal === null
+      ? '<span style="color:var(--muted)">ZAR only</span>'
+      : fmtUSD(r.usdTotal != null ? r.usdTotal : r.total / rate);
+    var unitCostCell = r.noEdit
+      ? '<span style="color:var(--muted)">R ' + Math.round(r.unitCost).toLocaleString() + '</span>'
+      : '<span contenteditable="true" style="outline:none;border-bottom:1px dashed var(--border);cursor:text;padding:1px 4px;min-width:40px;display:inline-block" ' +
+          'onblur="UNIT_COSTS[\'' + r.key + '\']=parseFloat(this.textContent.replace(/[^0-9.]/g,\'\'))||0;buildCostsTable()" ' +
+          'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}">R ' + Math.round(r.unitCost).toLocaleString() + '</span>';
+    return '<tr style="' + bg + ';border-bottom:1px solid rgba(255,255,255,0.04)">' +
+      '<td style="padding:9px 14px 9px 22px">' +
+        '<div style="color:var(--text);font-weight:500">' + r.cat + '</div>' +
+        '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + r.desc + '</div>' +
+      '</td>' +
+      '<td style="padding:9px 14px;text-align:right;color:var(--text)">' + fmtN(r.qty) + '</td>' +
+      '<td style="padding:9px 14px;text-align:right;color:var(--muted)">' + r.unit + '</td>' +
+      '<td style="padding:9px 14px;text-align:right">' + unitCostCell + '</td>' +
+      '<td style="padding:9px 14px;text-align:right;color:var(--gold);font-weight:500">' + fmtR(r.total) + '</td>' +
+      '<td style="padding:9px 14px;text-align:right;color:var(--muted)">' + usdCell + '</td>' +
+    '</tr>';
+  }
+
+  function renderGroup(g) {
+    return '<tr style="background:var(--surface2);border-top:2px solid ' + g.color + '">' +
+        '<td colspan="4" style="padding:8px 14px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:' + g.color + '">' + g.label + '</td>' +
+        '<td colspan="2" style="padding:8px 14px;text-align:right;font-size:7px;letter-spacing:1px;text-transform:uppercase;color:' + g.color + '">Subtotal</td>' +
+      '</tr>' +
+      g.rows.map(renderRow).join('') +
+      '<tr style="background:var(--surface2);border-top:1px solid var(--border)">' +
+        '<td colspan="4" style="padding:7px 14px;font-size:9px;color:var(--muted)">' + g.label + ' subtotal</td>' +
+        '<td style="padding:7px 14px;text-align:right;color:' + g.color + ';font-weight:700">' + fmtR(g.subtotal) + '</td>' +
+        '<td style="padding:7px 14px;text-align:right;color:var(--muted)">' + fmtUSD(g.subtotal / rate) + '</td>' +
+      '</tr>';
+  }
+
+  body.innerHTML = groups.map(renderGroup).join('');
+
+  var vat        = grandTotal * 0.15;
+  var grandIncVat = grandTotal + vat;
+  var grandIncUSD = grandIncVat / rate;
+
+  var footRow =
+    '<tr style="background:var(--surface2);border-top:2px solid var(--border)">' +
+      '<td colspan="3" style="padding:10px 14px;font-size:9px;color:var(--muted)">Sources: Herholdts CEN-Q422199 · Current Automation SOQ333105 · Lianli PI LL-20260414-1</td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--muted);font-size:9px">Total ex-VAT</td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--gold);font-weight:700">' + fmtR(grandTotal) + '</td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--green);font-weight:700">' + fmtUSD(grandUSD) + '</td>' +
+    '</tr>' +
+    '<tr style="background:var(--surface2)">' +
+      '<td colspan="3" style="padding:6px 14px;font-size:9px;color:var(--muted)">VAT @ 15%</td>' +
+      '<td style="padding:6px 14px;text-align:right;color:var(--muted);font-size:9px">VAT</td>' +
+      '<td style="padding:6px 14px;text-align:right;color:var(--muted)">' + fmtR(vat) + '</td>' +
+      '<td style="padding:6px 14px;text-align:right;color:var(--muted)">' + fmtUSD(vat / rate) + '</td>' +
+    '</tr>' +
+    '<tr style="background:var(--surface2);border-top:1px solid var(--border)">' +
+      '<td colspan="3" style="padding:10px 14px"></td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--text);font-size:9px;font-weight:700">Total inc. VAT</td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--gold);font-weight:700;font-size:13px">' + fmtR(grandIncVat) + '</td>' +
+      '<td style="padding:10px 14px;text-align:right;color:var(--green);font-weight:700;font-size:13px">' + fmtUSD(grandIncUSD) + '</td>' +
+    '</tr>';
+
+  foot.innerHTML = footRow;
+
+  // Summary panel
+  var rPerTH = grandUSD / (nMiner * (typeof MINER_HASH !== 'undefined' ? MINER_HASH : 332));
+  if (summary) summary.innerHTML =
+    '<div>Total capex: <span style="color:var(--gold)">' + fmtR(grandTotal) + '</span></div>' +
+    '<div>Total capex: <span style="color:var(--green)">' + fmtUSD(grandUSD) + '</span></div>' +
+    '<div style="margin-top:4px">Per miner: <span style="color:var(--text)">R ' + Math.round(grandTotal/Math.max(nMiner,1)).toLocaleString() + '</span></div>' +
+    '<div>Per TH/s: <span style="color:var(--text)">$ ' + rPerTH.toFixed(2) + '</span></div>' +
+    '<div>Per kWp DC: <span style="color:var(--text)">R ' + Math.round(grandTotal/(nPanel*0.65)).toLocaleString() + '</span></div>' +
+    '<div>Battery: <span style="color:var(--text)">R ' + Math.round(battTotal/(nBatt*241)).toLocaleString() + '/kWh · ' + (nBatt*241).toLocaleString() + ' kWh total</span></div>';
+}
+
 
 </script>
 </body>
